@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>Shift Manager</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -31,7 +31,7 @@
             <div class="header-actions-row">
                 <button onclick="openHelpModal()" class="btn-icon">📖<br><span>説明</span></button>
                 <button onclick="openStaffModal()" class="btn-icon">👥<br><span>編集</span></button>
-                <button onclick="downloadPDF()" class="btn-icon">📄<br><span>PDF</span></button>
+                <button onclick="openPDFModal()" class="btn-icon">📄<br><span>PDF</span></button>
                 <button onclick="saveDataConfirm()" class="btn-icon save">💾<br><span>保存</span></button>
             </div>
         </header>
@@ -45,7 +45,7 @@
 
         <div id="toolbar">
             <div class="toolbar-header">
-                <span style="font-size:12px; color:#666;">なぞって選択</span>
+                <span style="font-size:12px; color:#666;">なぞって選択 (2本指で移動)</span>
                 <button onclick="clearSelection()" class="btn-mini">選択解除</button>
                 <button onclick="openModal()" class="btn-mini-add">＋アイコン作成</button>
             </div>
@@ -53,24 +53,32 @@
         </div>
     </div>
 
+    <div id="pdf-modal-overlay" class="modal-overlay" style="display: none;">
+        <div class="modal-box">
+            <h3>PDF出力設定</h3>
+            <p class="modal-desc">出力するスタッフを選択してください</p>
+            <div id="pdf-staff-list" style="text-align:left; max-height:200px; overflow-y:auto; margin-bottom:20px; border:1px solid #eee; padding:10px;">
+                </div>
+            <div class="modal-actions">
+                <button onclick="closePDFModal()" class="btn-cancel">閉じる</button>
+                <button onclick="generatePDF()" class="btn-confirm">PDF作成</button>
+            </div>
+        </div>
+    </div>
+
     <div id="help-modal-overlay" class="modal-overlay" style="display: none;">
         <div class="modal-box help-box">
             <h3 style="border-bottom:1px solid #ddd; padding-bottom:10px; margin-bottom:10px;">使い方ガイド</h3>
             <div class="help-content">
-                <h4>1. シフトの入力方法</h4>
-                <p>① シフト表のマスをタップ（またはなぞって）選択します。<br>
-                   ② 下のバーから「早」「遅」などのボタンを押すと反映されます。<br>
-                   ③ 間違えた場合は「消去」ボタンで消せます。</p>
+                <h4>1. 操作方法</h4>
+                <p><strong>選択：</strong>1本指でなぞるとマスを選択できます。<br>
+                   <strong>移動・拡大：</strong>2本指でスクロールや拡大縮小ができます。</p>
 
-                <h4>2. 保存について</h4>
-                <p>入力した内容は、右上の「💾 保存」ボタンを押すまで確定されません。作業が終わったら必ず保存してください。</p>
+                <h4>2. PDF出力</h4>
+                <p>「📄 PDF」ボタンを押すと、全スタッフを出力するか、特定のスタッフのみ選んで出力するかを選択できます。画面に見えていない部分も全て出力されます。</p>
 
-                <h4>3. スタッフ・アイコンの編集</h4>
-                <p><strong>スタッフ追加：</strong>「👥 編集」ボタンから行えます。<br>
-                   <strong>アイコン追加：</strong>下の「＋アイコン作成」から新しいシフト種別を作れます。</p>
-                
-                <h4>4. PDF保存</h4>
-                <p>「📄 PDF」ボタンを押すと、現在の画面を画像として保存できます。</p>
+                <h4>3. 入力完了時</h4>
+                <p>パスワードや名前の入力時、エンターキーを押すか、枠の外側をタップするとキーボードが閉じます。</p>
             </div>
             <div class="modal-actions" style="justify-content: center; margin-top:15px;">
                 <button onclick="closeHelpModal()" class="btn-confirm" style="width:100%">閉じる</button>
