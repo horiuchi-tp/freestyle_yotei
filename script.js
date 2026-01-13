@@ -116,7 +116,7 @@ function changeMonth(diff) {
 }
 
 // ==========================================
-// PDF関連制御（強制縮小版）
+// PDF関連制御（完全1枚フィット版）
 // ==========================================
 function openPDFModal() {
     const listContainer = document.getElementById('pdf-staff-list');
@@ -161,18 +161,16 @@ function generatePDF() {
 
     const originalTable = document.getElementById('shift-table');
     
-    // PDF生成用コンテナ（画面外に配置）
+    // PDF生成用の一時領域
     const container = document.createElement('div');
     container.style.position = 'fixed';
     container.style.top = '0';
     container.style.left = '0';
-    // ユーザーからは見えないが、描画エンジンからは見えるようにz-indexを調整
     container.style.zIndex = '-9999'; 
     container.style.background = 'white';
     container.style.padding = '20px';
-    // 横幅を固定せず、内容に合わせて自然に広げる
-    container.style.width = 'auto';
-    container.style.minWidth = '1200px'; // 最低幅を確保して折り返しを防ぐ
+    // 横幅は中身（スタッフ数）に合わせて自動で広げる
+    container.style.width = 'max-content';
 
     const title = document.createElement('h2');
     title.innerText = `${currentYear}年 ${currentMonth}月 シフト表`;
@@ -181,12 +179,11 @@ function generatePDF() {
     container.appendChild(title);
 
     const cloneTable = originalTable.cloneNode(true);
-    // スタイルをリセットして全展開させる
-    cloneTable.style.width = '100%'; 
+    // クローンのスタイル調整（全日程を表示）
+    cloneTable.style.width = 'auto'; 
     cloneTable.style.borderCollapse = 'collapse';
-    cloneTable.style.tableLayout = 'auto';
 
-    // 色と文字を確実に反映させる処理
+    // 色と文字を確実に固定する
     const origThs = originalTable.querySelectorAll('thead th');
     const cloneThs = cloneTable.querySelectorAll('thead th');
     origThs.forEach((th, i) => {
@@ -194,8 +191,10 @@ function generatePDF() {
             cloneThs[i].style.backgroundColor = getComputedStyle(th).backgroundColor;
             cloneThs[i].style.color = getComputedStyle(th).color;
             cloneThs[i].style.border = "1px solid #888"; 
-            cloneThs[i].style.fontSize = "14px";
+            cloneThs[i].style.fontSize = "16px";
             cloneThs[i].style.padding = "2px";
+            // 縦書きになりがちなスタッフ名を横書き維持
+            cloneThs[i].style.whiteSpace = "nowrap"; 
         }
     });
 
@@ -203,15 +202,34 @@ function generatePDF() {
     const cloneBody = cloneTable.querySelector('tbody');
     cloneBody.innerHTML = ""; 
 
+    // 元のテーブルから全日程分を取得して、フィルタリングして追加
     origRows.forEach((row) => {
-        const staffNameTh = row.querySelector('th');
-        const staffName = staffNameTh.innerText;
+        // スタッフ名はtheadにある構造なので、tbodyの各行は「日付」＋「各スタッフのセル」
+        // 修正：現在の構造では thead = Staff Names, tbody Rows = Date.
+        // つまり、行ごと(日付ごと)に、選択されたスタッフの列だけを抽出する必要がある。
+        
+        // ヘッダー行のスタッフリストを取得（インデックス特定のため）
+        // originalTableの構造:
+        // thead tr: [日付ラベル, Staff A, Staff B, ...]
+        
+        // 選択されたスタッフのインデックスを探す
+        // theadの全thを取得
+        const headerThs = originalTable.querySelectorAll('thead tr th');
+        let targetIndices = [0]; // 0番目は「日付」列なので常に含める
+        headerThs.forEach((th, idx) => {
+            if (selectedStaff.includes(th.innerText)) {
+                targetIndices.push(idx);
+            }
+        });
 
-        if (selectedStaff.includes(staffName)) {
-            const newRow = document.createElement('tr');
-            const cells = row.children;
-            
-            Array.from(cells).forEach(cell => {
+        // 行の作成
+        const newRow = document.createElement('tr');
+        const cells = row.children; // cells[0]=日付, cells[1]=StaffA...
+        
+        // targetIndicesにある列だけコピーする
+        targetIndices.forEach(idx => {
+            const cell = cells[idx];
+            if (cell) {
                 const newCell = cell.cloneNode(true);
                 const computedStyle = getComputedStyle(cell);
                 
@@ -223,26 +241,45 @@ function generatePDF() {
                 newCell.style.height = "30px"; 
                 newCell.style.minWidth = "30px"; 
                 newCell.style.textAlign = "center";
-                newCell.style.verticalAlign = "middle"; // 文字を上下中央に
+                newCell.style.verticalAlign = "middle";
 
                 if(newCell.tagName === 'TH') {
+                    // 日付セル
                     newCell.style.fontWeight = "bold";
-                    newCell.style.textAlign = "left";
-                    newCell.style.whiteSpace = "nowrap"; 
                     newCell.style.backgroundColor = "#fff";
                 }
-
                 newRow.appendChild(newCell);
-            });
-            cloneBody.appendChild(newRow);
-        }
+            }
+        });
+        cloneBody.appendChild(newRow);
     });
+
+    // ヘッダーも同様にフィルタリング
+    const cloneHeadTr = cloneTable.querySelector('thead tr');
+    if (cloneHeadTr) {
+        cloneHeadTr.innerHTML = ""; // 一旦クリア
+        const headerThs = originalTable.querySelectorAll('thead tr th');
+        let targetIndices = [0];
+        headerThs.forEach((th, idx) => {
+            if (selectedStaff.includes(th.innerText)) {
+                targetIndices.push(idx);
+            }
+        });
+        targetIndices.forEach(idx => {
+            const th = headerThs[idx];
+            const newTh = th.cloneNode(true);
+            newTh.style.backgroundColor = getComputedStyle(th).backgroundColor;
+            newTh.style.color = getComputedStyle(th).color;
+            newTh.style.border = "1px solid #888"; 
+            newTh.style.whiteSpace = "nowrap"; 
+            cloneHeadTr.appendChild(newTh);
+        });
+    }
 
     container.appendChild(cloneTable);
     document.body.appendChild(container);
 
-    // 画像化とPDF化
-    // scaleを上げて高画質化することで、縮小時の文字潰れを防ぐ
+    // 画像化とPDF化 (Fit to Page Logic)
     html2canvas(container, { scale: 3, useCORS: true }).then(canvas => {
         const imgData = canvas.toDataURL('image/png');
         const { jsPDF } = window.jspdf;
@@ -252,32 +289,27 @@ function generatePDF() {
         
         const pdfWidth = doc.internal.pageSize.getWidth();   // 210mm
         const pdfHeight = doc.internal.pageSize.getHeight(); // 297mm
-        const margin = 5; // 余白5mm
+        const margin = 5; 
         
-        // 描画可能エリア
         const printWidth = pdfWidth - (margin * 2);
         const printHeight = pdfHeight - (margin * 2);
 
         const imgProps = doc.getImageProperties(imgData);
+        const imgRatio = imgProps.height / imgProps.width; // 縦長度合い
         
-        // ★重要: ここで「横幅」を基準に縮小率を決める
-        // 画像の「縦横比」を計算
-        const imgRatio = imgProps.height / imgProps.width;
-        
-        // PDFに貼り付ける幅を「用紙の最大幅」に設定
-        const finalWidth = printWidth;
-        // それに合わせた高さを計算
-        let finalHeight = printWidth * imgRatio;
+        // 計算ロジック:
+        // 1. まず横幅を用紙いっぱいに合わせる
+        let finalWidth = printWidth;
+        let finalHeight = finalWidth * imgRatio;
 
-        // 万が一、高さが用紙を超えてしまう場合（スタッフ数が極端に多い時など）
-        // 1枚に収めるためにさらに縮小する
+        // 2. もし高さが用紙をはみ出すなら（スタッフが少なくて縦長すぎる場合や、行が多い場合）
+        //    高さを基準に縮小し直す -> これで「1枚に収まる」
         if (finalHeight > printHeight) {
-             const fitRatio = printHeight / finalHeight;
-             finalWidth = finalWidth * fitRatio;
+             const scaleFactor = printHeight / finalHeight;
+             finalWidth = finalWidth * scaleFactor;
              finalHeight = printHeight;
         }
 
-        // 画像配置 (左上座標: margin, margin)
         doc.addImage(imgData, 'PNG', margin, margin, finalWidth, finalHeight);
         doc.save(`shift_${currentYear}_${currentMonth}.pdf`);
         
@@ -416,10 +448,12 @@ function renderTable() {
             td.dataset.value = val;
             updateCellStyle(td, val);
             
+            // タッチイベント設定
             td.addEventListener('touchstart', handleTouchStart, {passive: false});
             td.addEventListener('touchmove', handleTouchMove, {passive: false}); 
             td.addEventListener('touchend', handleTouchEnd);
             
+            // マウス操作
             td.onmousedown = (e) => { isDragging = true; toggleSelection(td); e.preventDefault(); };
             td.onmouseover = () => { if(isDragging) addSelection(td); };
             td.onmouseup = () => { isDragging = false; };
@@ -461,21 +495,29 @@ function renderToolbar() {
     }
 }
 
+// 修正：2本指操作を確実に許可するロジック
 function handleTouchStart(e) {
+    // 2本指以上の場合はドラッグとみなさない（ブラウザ標準動作に任せる）
     if (e.touches.length > 1) {
         isDragging = false;
         return;
     }
+    // 1本指の場合のみドラッグ開始
     isDragging = true;
+    // ここでpreventDefaultはしない（タップかスクロールかまだ未確定なため）
+    // 即座に選択したい場合はtdを特定して処理
     let td = e.target.closest('td');
     if(td) toggleSelection(td);
 }
 
 function handleTouchMove(e) {
+    // 2本指以上の場合：何もしない（returnすることでブラウザ標準のスクロール/ズームが機能する）
     if (e.touches.length > 1) {
         isDragging = false; 
         return; 
     }
+
+    // 1本指の場合：スクロールを止めて「なぞり選択」を実行
     if (isDragging) {
         if (e.cancelable) e.preventDefault(); 
         
