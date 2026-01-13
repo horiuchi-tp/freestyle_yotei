@@ -1,4 +1,4 @@
-// ★GASのURL（ご自身の新しいURLに書き換えてください）
+// ★GASのURL（ご自身のURLに書き換えてください）
 const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyCiKN_tDGJn80oU-1oQnhi8daCwP2LFK2K_DFuEAGvLcr_cit03qSH0gCQwEzbtlOmRQ/exec";
 
 // 変数
@@ -17,7 +17,6 @@ let selectedNewColor = PRESET_COLORS[0];
 // ==========================================
 // 初期化・便利機能
 // ==========================================
-// 入力フィールドでエンターキーを押したらフォーカスを外す（キーボードを閉じる）
 document.addEventListener('DOMContentLoaded', () => {
     const inputs = document.querySelectorAll('input');
     inputs.forEach(input => {
@@ -28,9 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // 背景クリックでキーボードを閉じるための処理
+    // 背景クリックでキーボードを閉じる
     document.addEventListener('click', (e) => {
-        // 入力フィールドやボタン以外をタップした場合
         if (!e.target.closest('input') && !e.target.closest('button') && !e.target.closest('.modal-box')) {
             if (document.activeElement && document.activeElement.tagName === 'INPUT') {
                 document.activeElement.blur();
@@ -40,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// 通信関数 (安定版)
+// 通信関数
 // ==========================================
 function postToGAS(payloadObj) {
     return fetch(GAS_API_URL, {
@@ -119,7 +117,7 @@ function changeMonth(diff) {
 }
 
 // ==========================================
-// PDF関連制御（強化版）
+// PDF関連制御（縦向き・1枚対応版）
 // ==========================================
 function openPDFModal() {
     const listContainer = document.getElementById('pdf-staff-list');
@@ -165,55 +163,132 @@ function generatePDF() {
         return;
     }
 
-    // 2. PDF生成用のクローンテーブルを作成（画面外に配置）
-    // これによりスクロールに関係なく全データを描画できる
+    // 2. PDF生成用の一時コンテナを作成
     const originalTable = document.getElementById('shift-table');
-    const cloneTable = originalTable.cloneNode(true);
     
-    // クローンのスタイル調整（全表示させる）
-    cloneTable.style.width = '1200px'; // 固定幅で綺麗に
-    
-    // 選択されていないスタッフの行を削除する
-    const rows = cloneTable.querySelectorAll('tbody tr');
-    rows.forEach(row => {
-        // スタッフ名はtbodyのthにある
-        const th = row.querySelector('th');
-        if (th && !selectedStaff.includes(th.innerText)) {
-            row.remove();
-        }
-    });
-
-    // ヘッダーのスタッフ名列も整理（今回は行見出しなので不要だが、thead調整が必要な場合に備える）
-    
-    // 一時的なコンテナを作成
+    // 描画用のコンテナ（画面外、白背景、固定幅なしで自動拡張）
     const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.top = '-9999px';
+    container.style.position = 'fixed';
+    container.style.top = '0';
     container.style.left = '0';
-    container.style.width = '1300px'; // 余裕を持たせる
-    container.style.padding = '20px';
+    container.style.zIndex = '-9999'; 
     container.style.background = 'white';
+    container.style.padding = '20px';
+    container.style.width = 'max-content'; // コンテンツに合わせて幅を最大化
     
-    // タイトル追加
+    // タイトル
     const title = document.createElement('h2');
     title.innerText = `${currentYear}年 ${currentMonth}月 シフト表`;
     title.style.textAlign = 'center';
+    title.style.marginBottom = '20px';
+    title.style.fontFamily = 'sans-serif';
     container.appendChild(title);
+
+    // テーブルのクローン
+    const cloneTable = originalTable.cloneNode(true);
+    cloneTable.style.width = 'auto'; // 横に伸びることを許可
+    cloneTable.style.borderCollapse = 'collapse';
+
+    // 3. データ整理とスタイル固定（見た目を確定させる）
+    
+    // ヘッダー（日付行）のスタイル適用
+    const origThs = originalTable.querySelectorAll('thead th');
+    const cloneThs = cloneTable.querySelectorAll('thead th');
+    origThs.forEach((th, i) => {
+        if(cloneThs[i]) {
+            cloneThs[i].style.backgroundColor = getComputedStyle(th).backgroundColor;
+            cloneThs[i].style.color = getComputedStyle(th).color;
+            cloneThs[i].style.border = "1px solid #999"; // 印刷用に少し濃く
+            cloneThs[i].style.fontSize = "16px";
+            cloneThs[i].style.padding = "4px";
+        }
+    });
+
+    // ボディ（スタッフ行）の再構築
+    const origRows = originalTable.querySelectorAll('tbody tr');
+    const cloneBody = cloneTable.querySelector('tbody');
+    cloneBody.innerHTML = ""; // 一旦クリア
+
+    origRows.forEach((row) => {
+        const staffNameTh = row.querySelector('th');
+        const staffName = staffNameTh.innerText;
+
+        // 選択されたスタッフのみ追加
+        if (selectedStaff.includes(staffName)) {
+            const newRow = document.createElement('tr');
+            const cells = row.children;
+            
+            Array.from(cells).forEach(cell => {
+                const newCell = cell.cloneNode(true);
+                
+                // 元のセルのスタイルをコピー
+                const computedStyle = getComputedStyle(cell);
+                newCell.style.backgroundColor = computedStyle.backgroundColor;
+                newCell.style.color = computedStyle.color;
+                newCell.style.fontWeight = computedStyle.fontWeight;
+                
+                // PDF用の微調整（文字は小さくてもOK、枠線をはっきり）
+                newCell.style.fontSize = "16px"; 
+                newCell.style.border = "1px solid #999";
+                newCell.style.height = "35px"; 
+                newCell.style.minWidth = "35px"; 
+                newCell.style.textAlign = "center";
+                
+                // スタッフ名のセル調整
+                if(newCell.tagName === 'TH') {
+                    newCell.style.fontWeight = "bold";
+                    newCell.style.textAlign = "left";
+                    newCell.style.paddingLeft = "8px";
+                    newCell.style.backgroundColor = "#fff";
+                    newCell.style.whiteSpace = "nowrap"; // 名前での折り返し防止
+                }
+
+                newRow.appendChild(newCell);
+            });
+            cloneBody.appendChild(newRow);
+        }
+    });
+
     container.appendChild(cloneTable);
     document.body.appendChild(container);
 
-    // 3. html2canvasで画像化
-    html2canvas(container, { scale: 2 }).then(canvas => {
+    // 4. 画像化 -> PDF化 (縦向き1枚に収めるロジック)
+    // scale: 4 で超高解像度化（縮小しても文字が潰れないように）
+    html2canvas(container, { scale: 4, useCORS: true }).then(canvas => {
         const imgData = canvas.toDataURL('image/png');
         const { jsPDF } = window.jspdf;
-        // 横向き(landscape)で作成
-        const doc = new jsPDF({ orientation: 'landscape' });
         
+        // A4 縦向き (portrait)
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        
+        const pageWidth = doc.internal.pageSize.getWidth();   // 210mm
+        const pageHeight = doc.internal.pageSize.getHeight(); // 297mm
+        const margin = 10; // 余白 10mm
+        
+        const usableWidth = pageWidth - (margin * 2);
+        const usableHeight = pageHeight - (margin * 2);
+
         const imgProps = doc.getImageProperties(imgData);
-        const pdfWidth = doc.internal.pageSize.getWidth();
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
         
-        doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        // 画像の本来のアスペクト比
+        const imgRatio = imgProps.width / imgProps.height;
+        
+        // 用紙の枠に収めるための幅と高さを計算
+        // 1. 幅を用紙幅いっぱいにした場合の高さ
+        let finalImgWidth = usableWidth;
+        let finalImgHeight = usableWidth / imgRatio;
+
+        // 2. もし高さが用紙からはみ出るなら、高さに合わせて幅を縮める（1枚に収めるため）
+        if (finalImgHeight > usableHeight) {
+            finalImgHeight = usableHeight;
+            finalImgWidth = usableHeight * imgRatio;
+        }
+
+        // 画像の中央配置用オフセット計算
+        const xOffset = margin + (usableWidth - finalImgWidth) / 2;
+        const yOffset = margin; // 上詰め
+
+        doc.addImage(imgData, 'PNG', xOffset, yOffset, finalImgWidth, finalImgHeight);
         doc.save(`shift_${currentYear}_${currentMonth}.pdf`);
         
         // 後始末
@@ -221,7 +296,7 @@ function generatePDF() {
         showLoading(false);
         showAlert('success', '完了', 'PDFを保存しました');
     }).catch(err => {
-        document.body.removeChild(container);
+        if(document.body.contains(container)) document.body.removeChild(container);
         showLoading(false);
         showAlert('error', 'エラー', err.toString());
     });
@@ -354,9 +429,9 @@ function renderTable() {
             td.dataset.value = val;
             updateCellStyle(td, val);
             
-            // タッチ操作（改良版）
+            // タッチ操作（修正版：2本指と1本指を厳密に区別）
             td.addEventListener('touchstart', handleTouchStart, {passive: false});
-            td.addEventListener('touchmove', handleTouchMove, {passive: false}); // passive: false で preventDefault() を可能にする
+            td.addEventListener('touchmove', handleTouchMove, {passive: false}); 
             td.addEventListener('touchend', handleTouchEnd);
             
             // マウス操作
@@ -401,30 +476,36 @@ function renderToolbar() {
     }
 }
 
-// 共通機能（タッチ制御 改良版）
+// 共通機能（タッチ制御 修正版）
 function handleTouchStart(e) {
-    // 1本指の場合のみドラッグ開始
-    if (e.touches.length === 1) {
-        isDragging = true;
-        let td = e.target.closest('td');
-        if(td) toggleSelection(td);
-    } else {
-        // 2本指以上の場合はドラッグモード解除（スクロール優先）
-        isDragging = false;
-    }
-}
-
-function handleTouchMove(e) {
-    // 2本指以上（スクロール/ズーム）の場合は何もしない（ブラウザのネイティブ動作に任せる）
+    // 2本指以上（ズーム・スクロール）の場合は、ドラッグモードを即座にOFFにする
     if (e.touches.length > 1) {
+        isDragging = false;
         return;
     }
 
-    // 1本指の場合、スクロールを無効化して「なぞり選択」を実行
-    if (isDragging && e.touches.length === 1) {
-        e.preventDefault(); // スクロール防止
+    // 1本指の場合のみドラッグ開始
+    isDragging = true;
+    let td = e.target.closest('td');
+    if(td) toggleSelection(td);
+}
+
+function handleTouchMove(e) {
+    // 2本指以上の場合、何もしない（ブラウザ標準のスクロール/ズーム動作に任せる）
+    if (e.touches.length > 1) {
+        isDragging = false; 
+        return; 
+    }
+
+    // 1本指の場合のみ処理
+    if (isDragging) {
+        // スクロールを止めて、なぞり選択を優先する
+        if (e.cancelable) e.preventDefault(); 
+        
         let touch = e.touches[0];
         let target = document.elementFromPoint(touch.clientX, touch.clientY);
+        
+        // ターゲットがセルであれば選択に追加
         if(target && target.tagName === 'TD' && target.id.startsWith('cell_')) {
             addSelection(target);
         }

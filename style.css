@@ -3,7 +3,7 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
     margin: 0; padding: 0;
     background-color: #f0f2f5;
-    /* touch-action: none; を削除し、JSで制御します */
+    /* JSで制御するため標準スクロール挙動は維持 */
     overscroll-behavior: none;
     color: #333;
 }
@@ -65,16 +65,22 @@ header {
 /* テーブルエリア */
 #table-container {
     width: 100%; overflow: auto; 
-    height: calc(100vh - 240px);
+    height: calc(100vh - 220px); /* ツールバーとの兼ね合いで調整 */
     background: white;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y; /* 2本指操作用に標準動作を許可 */
 }
 table { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; }
+
+/* セルサイズ調整: 45px */
 th, td {
     border-right: 1px solid #eee; border-bottom: 1px solid #eee;
-    text-align: center; padding: 0; height: 60px;
-    min-width: 60px; user-select: none;
+    text-align: center; padding: 0; 
+    height: 45px;      
+    min-width: 45px;   
+    user-select: none;
     box-sizing: border-box;
+    font-size: 16px;
 }
 
 /* 固定ヘッダー（日付） */
@@ -82,22 +88,26 @@ thead th {
     position: sticky; top: 0; background: #fafafa; z-index: 10; 
     border-bottom: 2px solid #ddd; font-weight: bold; font-size: 14px; color: #666;
 }
+
 /* 固定左列（スタッフ名） */
 tbody th { 
     position: sticky; left: 0; background: #fff; z-index: 11; 
     border-right: 2px solid #ddd; color: #333;
     box-shadow: 2px 0 5px rgba(0,0,0,0.05);
-    /* 指定: スタッフ名の文字を1.5倍・太文字 */
-    font-size: 1.5rem; 
-    font-weight: 900;
+    
+    /* スタッフ名強調 */
+    font-size: 1rem; 
+    font-weight: 900; /* 太文字 */
     padding: 0 5px;
     line-height: 1.2;
+    min-width: 90px;
 }
 thead th:first-child { left: 0; z-index: 12; background: #fafafa; border-right: 2px solid #ddd;}
 
 /* シフトアイコン（テーブル内） */
 td {
-    font-size: 24px; font-weight: 900;
+    font-size: 18px; 
+    font-weight: 900;
 }
 
 td.selected {
