@@ -21,6 +21,8 @@ function postToGAS(payloadObj) {
     return fetch(GAS_API_URL, {
         method: 'POST',
         headers: { "Content-Type": "text/plain" },
+        // GitHubなどの外部からアクセスする場合、リダイレクトを明示的に許可すると安定します
+        redirect: 'follow', 
         body: JSON.stringify(payloadObj)
     })
     .then(res => res.text())
