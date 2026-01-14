@@ -1,4 +1,4 @@
-// ★GASのURL（ご自身のURLに書き換えてください）
+// ★GASのURL（ご自身の新しいURLに書き換えてください）
 const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyCiKN_tDGJn80oU-1oQnhi8daCwP2LFK2K_DFuEAGvLcr_cit03qSH0gCQwEzbtlOmRQ/exec";
 
 // 変数
@@ -14,35 +14,22 @@ let modalCallback = null;
 const PRESET_COLORS = ["#ffcdd2", "#f8bbd0", "#e1bee7", "#d1c4e9", "#c5cae9", "#bbdefb", "#b2ebf2", "#b2dfdb", "#c8e6c9", "#fff9c4"];
 let selectedNewColor = PRESET_COLORS[0];
 
-// ==========================================
-// 初期化・便利機能
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    const inputs = document.querySelectorAll('input');
-    inputs.forEach(input => {
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                input.blur(); 
-            }
-        });
-    });
-    
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('input') && !e.target.closest('button') && !e.target.closest('.modal-box')) {
-            if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-                document.activeElement.blur();
-            }
-        }
-    });
-});
+// ★追加・変更した変数（タッチ操作制御用）
+let longPressTimer = null;   // 長押し判定用タイマー
+let isSelectionMode = false; // 選択モードかどうか
+let startX = 0;              // タッチ開始位置X
+let startY = 0;              // タッチ開始位置Y
+let isScrolling = false;     // スクロール中かどうか
+
 
 // ==========================================
-// 通信関数
+// 通信関数 (安定版)
 // ==========================================
 function postToGAS(payloadObj) {
     return fetch(GAS_API_URL, {
         method: 'POST',
         headers: { "Content-Type": "text/plain" },
+        // GitHubなどの外部からアクセスする場合、リダイレクトを明示的に許可すると安定します
         redirect: 'follow', 
         body: JSON.stringify(payloadObj)
     })
@@ -54,12 +41,15 @@ function postToGAS(payloadObj) {
 }
 
 // ==========================================
-// アプリ制御
+// アプリ制御 (高速化版)
 // ==========================================
+// needsConfig: スタッフやアイコン設定の再取得が必要な場合のみ true にする
 function refreshView(needsConfig = true) {
     showLoading(true);
+
     let promiseChain = Promise.resolve();
 
+    // 設定が必要な場合（初回ロード、スタッフ追加後など）のみ設定を取得
     if (needsConfig) {
         promiseChain = promiseChain.then(() => postToGAS({ action: 'getConfig' }))
             .then(configData => {
@@ -72,12 +62,13 @@ function refreshView(needsConfig = true) {
             });
     }
 
+    // シフトデータは常に取得
     promiseChain.then(() => postToGAS({ action: 'getShifts', year: currentYear, month: currentMonth }))
     .then(shiftRes => {
         if (shiftRes.status === 'success') {
             shiftData = shiftRes.data;
-            renderToolbar();
-            renderTable();
+            renderToolbar(); // ツールバー（アイコン）の再描画
+            renderTable();   // テーブルの再描画
             document.getElementById('current-month-display').innerText = `${currentMonth}月`;
             showLoading(false);
         } else {
@@ -98,7 +89,7 @@ function attemptLogin() {
         if (data.status === 'success') {
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app-screen').style.display = 'block';
-            refreshView(true);
+            refreshView(true); // 初回は設定も読み込む
         } else {
             showLoading(false);
             showAlert('error', '失敗', data.message);
@@ -112,223 +103,24 @@ function changeMonth(diff) {
     if (currentMonth > 12) { currentMonth = 1; currentYear++; }
     else if (currentMonth < 1) { currentMonth = 12; currentYear--; }
     clearSelection();
+    // ★高速化ポイント: 月移動時は設定（スタッフ等）を再読込せず、シフトだけ読み込む
     refreshView(false);
 }
 
 // ==========================================
-// PDF関連制御（完全1枚フィット版）
+// 説明書モーダル制御
 // ==========================================
-function openPDFModal() {
-    const listContainer = document.getElementById('pdf-staff-list');
-    listContainer.innerHTML = "";
-    
-    let allDiv = document.createElement('div');
-    allDiv.className = 'pdf-staff-item';
-    allDiv.innerHTML = `<input type="checkbox" id="pdf-check-all" onchange="toggleAllPDFChecks(this)" checked><label for="pdf-check-all">全て選択</label>`;
-    listContainer.appendChild(allDiv);
-
-    staffList.forEach((staff, idx) => {
-        let div = document.createElement('div');
-        div.className = 'pdf-staff-item';
-        div.innerHTML = `<input type="checkbox" class="pdf-staff-check" id="pdf-check-${idx}" value="${staff}" checked><label for="pdf-check-${idx}">${staff}</label>`;
-        listContainer.appendChild(div);
-    });
-
-    document.getElementById('pdf-modal-overlay').style.display = 'flex';
+function openHelpModal() {
+    document.getElementById('help-modal-overlay').style.display = 'flex';
+}
+function closeHelpModal() {
+    document.getElementById('help-modal-overlay').style.display = 'none';
 }
 
-function closePDFModal() {
-    document.getElementById('pdf-modal-overlay').style.display = 'none';
-}
-
-function toggleAllPDFChecks(source) {
-    const checkboxes = document.querySelectorAll('.pdf-staff-check');
-    checkboxes.forEach(cb => cb.checked = source.checked);
-}
-
-function generatePDF() {
-    closePDFModal();
-    showLoading(true);
-
-    const checkboxes = document.querySelectorAll('.pdf-staff-check');
-    const selectedStaff = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
-
-    if (selectedStaff.length === 0) {
-        showLoading(false);
-        showAlert('error', 'エラー', '出力するスタッフを選択してください');
-        return;
-    }
-
-    const originalTable = document.getElementById('shift-table');
-    
-    // PDF生成用の一時領域
-    const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.top = '0';
-    container.style.left = '0';
-    container.style.zIndex = '-9999'; 
-    container.style.background = 'white';
-    container.style.padding = '20px';
-    // 横幅は中身（スタッフ数）に合わせて自動で広げる
-    container.style.width = 'max-content';
-
-    const title = document.createElement('h2');
-    title.innerText = `${currentYear}年 ${currentMonth}月 シフト表`;
-    title.style.textAlign = 'center';
-    title.style.marginBottom = '20px';
-    container.appendChild(title);
-
-    const cloneTable = originalTable.cloneNode(true);
-    // クローンのスタイル調整（全日程を表示）
-    cloneTable.style.width = 'auto'; 
-    cloneTable.style.borderCollapse = 'collapse';
-
-    // 色と文字を確実に固定する
-    const origThs = originalTable.querySelectorAll('thead th');
-    const cloneThs = cloneTable.querySelectorAll('thead th');
-    origThs.forEach((th, i) => {
-        if(cloneThs[i]) {
-            cloneThs[i].style.backgroundColor = getComputedStyle(th).backgroundColor;
-            cloneThs[i].style.color = getComputedStyle(th).color;
-            cloneThs[i].style.border = "1px solid #888"; 
-            cloneThs[i].style.fontSize = "16px";
-            cloneThs[i].style.padding = "2px";
-            // 縦書きになりがちなスタッフ名を横書き維持
-            cloneThs[i].style.whiteSpace = "nowrap"; 
-        }
-    });
-
-    const origRows = originalTable.querySelectorAll('tbody tr');
-    const cloneBody = cloneTable.querySelector('tbody');
-    cloneBody.innerHTML = ""; 
-
-    // 元のテーブルから全日程分を取得して、フィルタリングして追加
-    origRows.forEach((row) => {
-        // スタッフ名はtheadにある構造なので、tbodyの各行は「日付」＋「各スタッフのセル」
-        // 修正：現在の構造では thead = Staff Names, tbody Rows = Date.
-        // つまり、行ごと(日付ごと)に、選択されたスタッフの列だけを抽出する必要がある。
-        
-        // ヘッダー行のスタッフリストを取得（インデックス特定のため）
-        // originalTableの構造:
-        // thead tr: [日付ラベル, Staff A, Staff B, ...]
-        
-        // 選択されたスタッフのインデックスを探す
-        // theadの全thを取得
-        const headerThs = originalTable.querySelectorAll('thead tr th');
-        let targetIndices = [0]; // 0番目は「日付」列なので常に含める
-        headerThs.forEach((th, idx) => {
-            if (selectedStaff.includes(th.innerText)) {
-                targetIndices.push(idx);
-            }
-        });
-
-        // 行の作成
-        const newRow = document.createElement('tr');
-        const cells = row.children; // cells[0]=日付, cells[1]=StaffA...
-        
-        // targetIndicesにある列だけコピーする
-        targetIndices.forEach(idx => {
-            const cell = cells[idx];
-            if (cell) {
-                const newCell = cell.cloneNode(true);
-                const computedStyle = getComputedStyle(cell);
-                
-                newCell.style.backgroundColor = computedStyle.backgroundColor;
-                newCell.style.color = computedStyle.color;
-                newCell.style.fontWeight = computedStyle.fontWeight;
-                newCell.style.fontSize = "14px"; 
-                newCell.style.border = "1px solid #888";
-                newCell.style.height = "30px"; 
-                newCell.style.minWidth = "30px"; 
-                newCell.style.textAlign = "center";
-                newCell.style.verticalAlign = "middle";
-
-                if(newCell.tagName === 'TH') {
-                    // 日付セル
-                    newCell.style.fontWeight = "bold";
-                    newCell.style.backgroundColor = "#fff";
-                }
-                newRow.appendChild(newCell);
-            }
-        });
-        cloneBody.appendChild(newRow);
-    });
-
-    // ヘッダーも同様にフィルタリング
-    const cloneHeadTr = cloneTable.querySelector('thead tr');
-    if (cloneHeadTr) {
-        cloneHeadTr.innerHTML = ""; // 一旦クリア
-        const headerThs = originalTable.querySelectorAll('thead tr th');
-        let targetIndices = [0];
-        headerThs.forEach((th, idx) => {
-            if (selectedStaff.includes(th.innerText)) {
-                targetIndices.push(idx);
-            }
-        });
-        targetIndices.forEach(idx => {
-            const th = headerThs[idx];
-            const newTh = th.cloneNode(true);
-            newTh.style.backgroundColor = getComputedStyle(th).backgroundColor;
-            newTh.style.color = getComputedStyle(th).color;
-            newTh.style.border = "1px solid #888"; 
-            newTh.style.whiteSpace = "nowrap"; 
-            cloneHeadTr.appendChild(newTh);
-        });
-    }
-
-    container.appendChild(cloneTable);
-    document.body.appendChild(container);
-
-    // 画像化とPDF化 (Fit to Page Logic)
-    html2canvas(container, { scale: 3, useCORS: true }).then(canvas => {
-        const imgData = canvas.toDataURL('image/png');
-        const { jsPDF } = window.jspdf;
-        
-        // A4 縦向き (Portrait)
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        
-        const pdfWidth = doc.internal.pageSize.getWidth();   // 210mm
-        const pdfHeight = doc.internal.pageSize.getHeight(); // 297mm
-        const margin = 5; 
-        
-        const printWidth = pdfWidth - (margin * 2);
-        const printHeight = pdfHeight - (margin * 2);
-
-        const imgProps = doc.getImageProperties(imgData);
-        const imgRatio = imgProps.height / imgProps.width; // 縦長度合い
-        
-        // 計算ロジック:
-        // 1. まず横幅を用紙いっぱいに合わせる
-        let finalWidth = printWidth;
-        let finalHeight = finalWidth * imgRatio;
-
-        // 2. もし高さが用紙をはみ出すなら（スタッフが少なくて縦長すぎる場合や、行が多い場合）
-        //    高さを基準に縮小し直す -> これで「1枚に収まる」
-        if (finalHeight > printHeight) {
-             const scaleFactor = printHeight / finalHeight;
-             finalWidth = finalWidth * scaleFactor;
-             finalHeight = printHeight;
-        }
-
-        doc.addImage(imgData, 'PNG', margin, margin, finalWidth, finalHeight);
-        doc.save(`shift_${currentYear}_${currentMonth}.pdf`);
-        
-        document.body.removeChild(container);
-        showLoading(false);
-        showAlert('success', '完了', 'PDFを保存しました');
-    }).catch(err => {
-        if(document.body.contains(container)) document.body.removeChild(container);
-        showLoading(false);
-        showAlert('error', 'エラー', err.toString());
-    });
-}
 
 // ==========================================
-// モーダル・保存関連
+// 編集・保存 (変更時は refreshView(true) で全更新)
 // ==========================================
-function openHelpModal() { document.getElementById('help-modal-overlay').style.display = 'flex'; }
-function closeHelpModal() { document.getElementById('help-modal-overlay').style.display = 'none'; }
-
 function saveDataConfirm() {
     showConfirm('保存', '現在の内容で保存しますか？', executeSaveData);
 }
@@ -361,7 +153,11 @@ function executeSaveData() {
     .catch(err => { showLoading(false); showAlert('error', '通信エラー', err.toString()); });
 }
 
-function openStaffModal() { document.getElementById('staff-modal-overlay').style.display = 'flex'; document.getElementById('new-staff-name').value = ""; }
+// スタッフ追加
+function openStaffModal() {
+    document.getElementById('staff-modal-overlay').style.display = 'flex';
+    document.getElementById('new-staff-name').value = "";
+}
 function closeStaffModal() { document.getElementById('staff-modal-overlay').style.display = 'none'; }
 function saveNewStaff() {
     const name = document.getElementById('new-staff-name').value;
@@ -384,6 +180,7 @@ function deleteStaff() {
     });
 }
 
+// アイコン編集
 function openModal() { document.getElementById('modal-overlay').style.display = 'flex'; document.getElementById('new-shift-label').value = ""; renderColorPicker(); }
 function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
 function saveNewIcon() {
@@ -408,7 +205,7 @@ function deleteIcon() {
 }
 
 // ==========================================
-// 描画・操作系
+// 描画・操作系 (タッチ操作ロジックは刷新)
 // ==========================================
 function renderTable() {
     const thead = document.getElementById('table-head');
@@ -434,7 +231,7 @@ function renderTable() {
         let tr = document.createElement('tr');
         
         let thDate = document.createElement('th');
-        thDate.innerText = `${day}`;
+        thDate.innerText = `${day}`; // シンプルに数字のみ
         if (dateObj.getDay() === 0) thDate.className = "sunday";
         if (dateObj.getDay() === 6) thDate.className = "saturday";
         tr.appendChild(thDate);
@@ -448,12 +245,13 @@ function renderTable() {
             td.dataset.value = val;
             updateCellStyle(td, val);
             
-            // タッチイベント設定
+            // ★タッチ操作ロジック（新機能）
             td.addEventListener('touchstart', handleTouchStart, {passive: false});
-            td.addEventListener('touchmove', handleTouchMove, {passive: false}); 
+            td.addEventListener('touchmove', handleTouchMove, {passive: false});
             td.addEventListener('touchend', handleTouchEnd);
-            
-            // マウス操作
+            td.addEventListener('touchcancel', handleTouchEnd);
+
+            // ★マウス操作（PC用）はオリジナルのロジックを完全に維持（長押し不要）
             td.onmousedown = (e) => { isDragging = true; toggleSelection(td); e.preventDefault(); };
             td.onmouseover = () => { if(isDragging) addSelection(td); };
             td.onmouseup = () => { isDragging = false; };
@@ -475,6 +273,7 @@ function renderToolbar() {
     const container = document.getElementById('shift-buttons');
     container.innerHTML = "";
     
+    // 消去ボタン
     let btnClear = document.createElement('div');
     btnClear.className = 'shift-btn';
     btnClear.innerText = '消去';
@@ -495,42 +294,83 @@ function renderToolbar() {
     }
 }
 
-// 修正：2本指操作を確実に許可するロジック
+// ==========================================
+// 共通機能（タッチ・長押し・スクロール判定）
+// ==========================================
+
 function handleTouchStart(e) {
-    // 2本指以上の場合はドラッグとみなさない（ブラウザ標準動作に任せる）
-    if (e.touches.length > 1) {
-        isDragging = false;
-        return;
-    }
-    // 1本指の場合のみドラッグ開始
-    isDragging = true;
-    // ここでpreventDefaultはしない（タップかスクロールかまだ未確定なため）
-    // 即座に選択したい場合はtdを特定して処理
-    let td = e.target.closest('td');
-    if(td) toggleSelection(td);
+    // タッチ開始位置を記録
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    
+    isScrolling = false;     // スクロールフラグ初期化
+    isSelectionMode = false; // 選択モード初期化
+
+    // 長押しタイマー開始 (0.5秒 = 500ms)
+    longPressTimer = setTimeout(() => {
+        // 0.5秒間、指が大きく動かなければ「選択モード」発動
+        if (!isScrolling) {
+            isSelectionMode = true;
+            if (navigator.vibrate) navigator.vibrate(50); // ブルっとさせる
+            
+            let td = e.target.closest('td');
+            if(td) {
+                addSelection(td); // 最初のセルを選択
+            }
+        }
+    }, 500); 
 }
 
 function handleTouchMove(e) {
-    // 2本指以上の場合：何もしない（returnすることでブラウザ標準のスクロール/ズームが機能する）
-    if (e.touches.length > 1) {
-        isDragging = false; 
-        return; 
+    const touch = e.touches[0];
+
+    // 選択モード中の場合：スクロールを止めて、なぞって選択
+    if (isSelectionMode) {
+        if (e.cancelable) e.preventDefault(); // スクロール禁止
+        
+        // 指の下にある要素を取得
+        let target = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (target && target.tagName === 'TD' && target.id.startsWith('cell_')) {
+            addSelection(target);
+        }
+        return;
     }
 
-    // 1本指の場合：スクロールを止めて「なぞり選択」を実行
-    if (isDragging) {
-        if (e.cancelable) e.preventDefault(); 
-        
-        let touch = e.touches[0];
-        let target = document.elementFromPoint(touch.clientX, touch.clientY);
-        
-        if(target && target.tagName === 'TD' && target.id.startsWith('cell_')) {
-            addSelection(target);
+    // まだ長押し確定前の場合：指が動いたらタイマー解除（ただのスクロールとみなす）
+    const moveX = Math.abs(touch.clientX - startX);
+    const moveY = Math.abs(touch.clientY - startY);
+
+    if (moveX > 10 || moveY > 10) { // 10px以上動いたらスクロールと判定
+        isScrolling = true;
+        if(longPressTimer) {
+            clearTimeout(longPressTimer); // 長押しキャンセル
+            longPressTimer = null;
         }
     }
 }
 
-function handleTouchEnd(e) { isDragging = false; }
+function handleTouchEnd(e) {
+    // 指が離れたらタイマー解除
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+
+    // 選択モードでもなく、スクロールもしていない場合 ＝ 「単発タップ」
+    if (!isSelectionMode && !isScrolling) {
+        let td = e.target.closest('td');
+        if (td) {
+            toggleSelection(td); // タップで選択/解除
+        }
+    }
+
+    // すべてリセット
+    isSelectionMode = false;
+    isScrolling = false;
+}
+
+// 既存の選択ロジック（そのまま維持）
 function toggleSelection(td) { if(selectedCells.has(td.id)) { selectedCells.delete(td.id); td.classList.remove('selected'); } else { addSelection(td); } }
 function addSelection(td) { if(!selectedCells.has(td.id)){ selectedCells.add(td.id); td.classList.add('selected'); } }
 function clearSelection() { selectedCells.forEach(id => { let el = document.getElementById(id); if(el) el.classList.remove('selected'); }); selectedCells.clear(); }
@@ -573,3 +413,20 @@ function showConfirm(title, message, callback) {
     document.getElementById('msg-modal-overlay').style.display = 'flex';
 }
 function closeMsgModal() { document.getElementById('msg-modal-overlay').style.display = 'none'; modalCallback = null; }
+
+function downloadPDF() { 
+    showLoading(true); 
+    const table = document.getElementById('shift-table'); 
+    html2canvas(table, { scale: 2 }).then(canvas => { 
+        const imgData = canvas.toDataURL('image/png'); 
+        const { jsPDF } = window.jspdf; 
+        const doc = new jsPDF({ orientation: 'portrait' }); 
+        const imgProps = doc.getImageProperties(imgData); 
+        const pdfWidth = doc.internal.pageSize.getWidth(); 
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width; 
+        doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight); 
+        doc.save(`shift_${currentYear}_${currentMonth}.pdf`); 
+        showLoading(false); 
+        showAlert('success', '完了', 'PDFを保存しました'); 
+    }).catch(err => { showLoading(false); showAlert('error', 'エラー', err.toString()); }); 
+}

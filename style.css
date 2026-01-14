@@ -3,7 +3,7 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
     margin: 0; padding: 0;
     background-color: #f0f2f5;
-    /* JSで制御するため標準スクロール挙動は維持 */
+    /* touch-action: none; を削除してスクロールを許可 */
     overscroll-behavior: none;
     color: #333;
 }
@@ -42,21 +42,23 @@ header {
     background: transparent; border: none; font-size: 24px; color: #3498db; padding: 0 20px; cursor: pointer;
 }
 
-/* ヘッダーボタン */
+/* ★ヘッダーボタン（大きく・横幅いっぱいに） */
 .header-actions-row {
     display: flex; gap: 8px; justify-content: space-between;
 }
 .btn-icon {
     background: #f7f9fa; border: 1px solid #e1e4e8; border-radius: 8px;
-    padding: 8px 0; 
+    padding: 8px 0; /* 高さを確保 */
     text-align: center; line-height: 1.2; cursor: pointer;
     color: #555;
-    flex: 1; 
-    font-size: 22px; 
+    flex: 1; /* 横幅を均等に広げる */
+    font-size: 22px; /* アイコンサイズUP */
     font-weight: bold;
 }
 .btn-icon span {
-    font-size: 13px; font-weight: bold; display: block; margin-top: 2px;
+    font-size: 13px; /* 下の文字サイズUP */
+    font-weight: bold;
+    display: block; margin-top: 2px;
 }
 .btn-icon.save { background: #e8f8f5; color: #27ae60; border-color: #27ae60; }
 .btn-icon:active { transform: scale(0.96); background: #eee; }
@@ -65,22 +67,16 @@ header {
 /* テーブルエリア */
 #table-container {
     width: 100%; overflow: auto; 
-    height: calc(100vh - 220px); /* ツールバーとの兼ね合いで調整 */
+    height: calc(100vh - 240px); /* ヘッダーとフッター分を引く */
     background: white;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y; /* 2本指操作用に標準動作を許可 */
 }
 table { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; }
-
-/* セルサイズ調整: 45px */
 th, td {
     border-right: 1px solid #eee; border-bottom: 1px solid #eee;
-    text-align: center; padding: 0; 
-    height: 45px;      
-    min-width: 45px;   
-    user-select: none;
+    text-align: center; padding: 0; height: 60px; /* マスを少し高く */
+    min-width: 60px; user-select: none;
     box-sizing: border-box;
-    font-size: 16px;
 }
 
 /* 固定ヘッダー（日付） */
@@ -88,26 +84,23 @@ thead th {
     position: sticky; top: 0; background: #fafafa; z-index: 10; 
     border-bottom: 2px solid #ddd; font-weight: bold; font-size: 14px; color: #666;
 }
-
-/* 固定左列（スタッフ名） */
+/* ★固定左列（スタッフ名） */
 tbody th { 
     position: sticky; left: 0; background: #fff; z-index: 11; 
     border-right: 2px solid #ddd; color: #333;
     box-shadow: 2px 0 5px rgba(0,0,0,0.05);
-    
-    /* スタッフ名強調 */
-    font-size: 1rem; 
-    font-weight: 900; /* 太文字 */
+    /* 指定: スタッフ名の文字を2倍の大きさ・太文字 */
+    font-size: 20px; /* 元が小さかったのでこのくらいで十分大きい */
+    font-weight: 900; /* 極太 */
     padding: 0 5px;
-    line-height: 1.2;
-    min-width: 90px;
+    line-height: 1.1;
 }
 thead th:first-child { left: 0; z-index: 12; background: #fafafa; border-right: 2px solid #ddd;}
 
-/* シフトアイコン（テーブル内） */
+/* ★シフトアイコン（テーブル内） */
 td {
-    font-size: 18px; 
-    font-weight: 900;
+    font-size: 24px; /* 指定: 1.5倍程度 */
+    font-weight: 900; /* 太文字 */
 }
 
 td.selected {
@@ -133,14 +126,16 @@ td.selected {
     align-items: center; height: 100%;
     -webkit-overflow-scrolling: touch;
 }
-/* シフトボタン（ツールバー） */
+/* ★シフトボタン（ツールバー） */
 .shift-btn {
     flex-shrink: 0; width: 70px; height: 70px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 16px; 
     box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer;
     border: 1px solid rgba(0,0,0,0.05);
-    font-weight: 900; font-size: 24px;
+    /* 指定: 文字大きく太く */
+    font-weight: 900; 
+    font-size: 24px;
 }
 .shift-btn:active { transform: scale(0.95); }
 
@@ -194,17 +189,6 @@ td.selected {
     border-left: 4px solid #3498db; padding-left: 8px; font-size: 15px;
 }
 .help-content p { margin: 0; line-height: 1.6; }
-
-/* チェックボックスリスト */
-.pdf-staff-item {
-    display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #f0f0f0;
-}
-.pdf-staff-item input {
-    width: auto; margin: 0 10px 0 0; transform: scale(1.5); /* チェックボックスを大きく */
-}
-.pdf-staff-item label {
-    font-size: 16px; font-weight: bold; flex-grow: 1; text-align: left;
-}
 
 /* 曜日 */
 .sunday { color: #e74c3c; background-color: #fff5f5 !important; }
