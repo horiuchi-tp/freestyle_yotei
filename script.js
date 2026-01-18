@@ -14,7 +14,7 @@ let modalCallback = null;
 const PRESET_COLORS = ["#ffcdd2", "#f8bbd0", "#e1bee7", "#d1c4e9", "#c5cae9", "#bbdefb", "#b2ebf2", "#b2dfdb", "#c8e6c9", "#fff9c4"];
 let selectedNewColor = PRESET_COLORS[0];
 
-// ★追加・変更した変数（タッチ操作制御用）
+// タッチ操作制御用
 let longPressTimer = null;   // 長押し判定用タイマー
 let isSelectionMode = false; // 選択モードかどうか
 let startX = 0;              // タッチ開始位置X
@@ -41,34 +41,42 @@ function postToGAS(payloadObj) {
 }
 
 // ==========================================
-// アプリ制御 (高速化版)
+// アプリ制御 (高速化・並列処理版)
 // ==========================================
-// needsConfig: スタッフやアイコン設定の再取得が必要な場合のみ true にする
 function refreshView(needsConfig = true) {
     showLoading(true);
 
-    let promiseChain = Promise.resolve();
+    // 通信処理の配列を作成
+    const requests = [];
 
-    // 設定が必要な場合（初回ロード、スタッフ追加後など）のみ設定を取得
+    // 1. 設定取得のリクエスト（必要な場合のみ）
     if (needsConfig) {
-        promiseChain = promiseChain.then(() => postToGAS({ action: 'getConfig' }))
-            .then(configData => {
-                if (configData.status === 'success') {
-                    staffList = configData.staff;
-                    shiftSettings = configData.shifts;
-                } else {
-                    throw new Error(configData.message);
-                }
-            });
+        requests.push(postToGAS({ action: 'getConfig' }));
+    } else {
+        requests.push(Promise.resolve(null)); // 何もしないPromise
     }
 
-    // シフトデータは常に取得
-    promiseChain.then(() => postToGAS({ action: 'getShifts', year: currentYear, month: currentMonth }))
-    .then(shiftRes => {
+    // 2. シフトデータ取得のリクエスト（常に実行）
+    requests.push(postToGAS({ action: 'getShifts', year: currentYear, month: currentMonth }));
+
+    // ★高速化の肝：Promise.allで並列実行
+    Promise.all(requests)
+    .then(([configData, shiftRes]) => {
+        // --- 設定データの反映 ---
+        if (configData) {
+            if (configData.status === 'success') {
+                staffList = configData.staff;
+                shiftSettings = configData.shifts;
+            } else {
+                throw new Error(configData.message);
+            }
+        }
+
+        // --- シフトデータの反映 ---
         if (shiftRes.status === 'success') {
             shiftData = shiftRes.data;
-            renderToolbar(); // ツールバー（アイコン）の再描画
-            renderTable();   // テーブルの再描画
+            renderToolbar(); // アイコン再描画
+            renderTable();   // テーブル再描画
             document.getElementById('current-month-display').innerText = `${currentMonth}月`;
             showLoading(false);
         } else {
@@ -205,7 +213,7 @@ function deleteIcon() {
 }
 
 // ==========================================
-// 描画・操作系 (タッチ操作ロジックは刷新)
+// 描画・操作系
 // ==========================================
 function renderTable() {
     const thead = document.getElementById('table-head');
@@ -245,13 +253,13 @@ function renderTable() {
             td.dataset.value = val;
             updateCellStyle(td, val);
             
-            // ★タッチ操作ロジック（新機能）
+            // タッチ操作ロジック
             td.addEventListener('touchstart', handleTouchStart, {passive: false});
             td.addEventListener('touchmove', handleTouchMove, {passive: false});
             td.addEventListener('touchend', handleTouchEnd);
             td.addEventListener('touchcancel', handleTouchEnd);
 
-            // ★マウス操作（PC用）はオリジナルのロジックを完全に維持（長押し不要）
+            // マウス操作（PC用）
             td.onmousedown = (e) => { isDragging = true; toggleSelection(td); e.preventDefault(); };
             td.onmouseover = () => { if(isDragging) addSelection(td); };
             td.onmouseup = () => { isDragging = false; };
@@ -292,6 +300,18 @@ function renderToolbar() {
             container.appendChild(btn);
         });
     }
+}
+
+// ==========================================
+// ツールバー開閉制御（新機能）
+// ==========================================
+function toggleToolbar() {
+    const toolbar = document.getElementById('toolbar');
+    const body = document.body;
+    
+    // クラスを付け外ししてCSSの状態を切り替える
+    toolbar.classList.toggle('toolbar-hidden');
+    body.classList.toggle('menu-closed');
 }
 
 // ==========================================

@@ -42,21 +42,21 @@ header {
     background: transparent; border: none; font-size: 24px; color: #3498db; padding: 0 20px; cursor: pointer;
 }
 
-/* ★ヘッダーボタン（大きく・横幅いっぱいに） */
+/* ★ヘッダーボタン */
 .header-actions-row {
     display: flex; gap: 8px; justify-content: space-between;
 }
 .btn-icon {
     background: #f7f9fa; border: 1px solid #e1e4e8; border-radius: 8px;
-    padding: 8px 0; /* 高さを確保 */
+    padding: 8px 0;
     text-align: center; line-height: 1.2; cursor: pointer;
     color: #555;
-    flex: 1; /* 横幅を均等に広げる */
-    font-size: 22px; /* アイコンサイズUP */
+    flex: 1;
+    font-size: 22px;
     font-weight: bold;
 }
 .btn-icon span {
-    font-size: 13px; /* 下の文字サイズUP */
+    font-size: 13px;
     font-weight: bold;
     display: block; margin-top: 2px;
 }
@@ -64,17 +64,24 @@ header {
 .btn-icon:active { transform: scale(0.96); background: #eee; }
 
 
-/* テーブルエリア */
+/* テーブルエリア（修正: 余白と高さを調整） */
 #table-container {
     width: 100%; overflow: auto; 
-    height: calc(100vh - 240px); /* ヘッダーとフッター分を引く */
+    /* ヘッダー(約60px) + 下部ツールバー(140px) + 余白 を考慮 */
+    height: calc(100vh - 200px); 
     background: white;
     -webkit-overflow-scrolling: touch;
+    
+    /* ★修正: 最下行が隠れないように下部に大きな余白を追加 */
+    padding-bottom: 200px; 
+    box-sizing: border-box;
+    transition: height 0.3s ease; /* メニュー開閉時に滑らかに高さを変える */
 }
+
 table { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; }
 th, td {
     border-right: 1px solid #eee; border-bottom: 1px solid #eee;
-    text-align: center; padding: 0; height: 60px; /* マスを少し高く */
+    text-align: center; padding: 0; height: 60px;
     min-width: 60px; user-select: none;
     box-sizing: border-box;
 }
@@ -84,40 +91,59 @@ thead th {
     position: sticky; top: 0; background: #fafafa; z-index: 10; 
     border-bottom: 2px solid #ddd; font-weight: bold; font-size: 14px; color: #666;
 }
-/* ★固定左列（スタッフ名） */
+/* 固定左列（スタッフ名） */
 tbody th { 
     position: sticky; left: 0; background: #fff; z-index: 11; 
     border-right: 2px solid #ddd; color: #333;
     box-shadow: 2px 0 5px rgba(0,0,0,0.05);
-    /* 指定: スタッフ名の文字を2倍の大きさ・太文字 */
-    font-size: 20px; /* 元が小さかったのでこのくらいで十分大きい */
-    font-weight: 900; /* 極太 */
+    font-size: 20px;
+    font-weight: 900;
     padding: 0 5px;
     line-height: 1.1;
 }
 thead th:first-child { left: 0; z-index: 12; background: #fafafa; border-right: 2px solid #ddd;}
 
-/* ★シフトアイコン（テーブル内） */
+/* シフトアイコン（テーブル内） */
 td {
-    font-size: 24px; /* 指定: 1.5倍程度 */
-    font-weight: 900; /* 太文字 */
+    font-size: 24px;
+    font-weight: 900;
 }
 
 td.selected {
     border: 3px solid #3498db; background-color: rgba(52, 152, 219, 0.2) !important;
 }
 
-/* 下部ツールバー */
+/* 下部ツールバー（修正: 開閉機能の追加） */
 #toolbar {
     position: fixed; bottom: 0; left: 0; width: 100%; height: 140px;
     background: #fff; border-top: 1px solid #ddd; 
     box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 200;
     display: flex; flex-direction: column;
+    transition: transform 0.3s ease; /* 開閉アニメーション */
 }
+
+/* ★修正: ツールバーが隠れた時のスタイル */
+#toolbar.toolbar-hidden {
+    transform: translateY(100px); /* 下に隠す（ヘッダー部分だけ残す） */
+}
+
+/* ★修正: ツールバーが隠れた時、テーブルを広くする */
+body.menu-closed #table-container {
+    height: calc(100vh - 100px); /* ツールバーが下がった分広げる */
+}
+
 .toolbar-header {
     padding: 8px 15px; display: flex; justify-content: space-between; align-items: center;
     border-bottom: 1px solid #f0f0f0;
 }
+/* ボタンの回転アニメーション */
+#toolbar-toggle-btn {
+    transition: transform 0.3s;
+}
+body.menu-closed #toolbar-toggle-btn {
+    transform: rotate(180deg); /* ▲ になるように回転 */
+}
+
 .btn-mini { background: #95a5a6; color: white; border: none; padding: 5px 10px; border-radius: 15px; font-size: 11px; }
 .btn-mini-add { background: #fff; color: #3498db; border: 1px solid #3498db; padding: 4px 10px; border-radius: 15px; font-size: 11px; }
 
@@ -126,14 +152,13 @@ td.selected {
     align-items: center; height: 100%;
     -webkit-overflow-scrolling: touch;
 }
-/* ★シフトボタン（ツールバー） */
+/* シフトボタン（ツールバー） */
 .shift-btn {
     flex-shrink: 0; width: 70px; height: 70px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 16px; 
     box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer;
     border: 1px solid rgba(0,0,0,0.05);
-    /* 指定: 文字大きく太く */
     font-weight: 900; 
     font-size: 24px;
 }

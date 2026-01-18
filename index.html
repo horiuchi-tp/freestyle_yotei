@@ -45,9 +45,14 @@
 
         <div id="toolbar">
             <div class="toolbar-header">
-                <span style="font-size:12px; color:#666;">なぞって選択</span>
-                <button onclick="clearSelection()" class="btn-mini">選択解除</button>
-                <button onclick="openModal()" class="btn-mini-add">＋アイコン作成</button>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <button id="toolbar-toggle-btn" onclick="toggleToolbar()" class="btn-mini" style="font-size:16px; padding:2px 10px;">▼</button>
+                    <span style="font-size:12px; color:#666;">なぞって選択</span>
+                </div>
+                <div style="display:flex; gap:5px;">
+                    <button onclick="clearSelection()" class="btn-mini">選択解除</button>
+                    <button onclick="openModal()" class="btn-mini-add">＋アイコン作成</button>
+                </div>
             </div>
             <div id="shift-buttons" class="shift-buttons-scroll"></div>
         </div>
