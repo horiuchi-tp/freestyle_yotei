@@ -288,7 +288,7 @@ function renderToolbar() {
 }
 
 // ==========================================
-// 追加: ツールバー開閉制御
+// ツールバー開閉制御
 // ==========================================
 function toggleToolbar() {
     const toolbar = document.getElementById('toolbar');
@@ -392,7 +392,7 @@ function showConfirm(title, message, callback) {
 function closeMsgModal() { document.getElementById('msg-modal-overlay').style.display = 'none'; modalCallback = null; }
 
 // ==========================================
-// PDF出力 (修正版: モーダル選択後に出力)
+// PDF出力 (修正版: モーダル選択 & スマホ対応)
 // ==========================================
 
 // モーダルを開いてスタッフ選択を促す
@@ -418,7 +418,7 @@ function closePdfModal() {
     document.getElementById('pdf-modal-overlay').style.display = 'none';
 }
 
-// 実際にPDFを作成する（モーダルの「作成する」ボタンから呼ばれる）
+// 実際にPDFを作成する
 function executePdfExport() {
     // 選択されたスタッフを取得
     const checkboxes = document.querySelectorAll('.pdf-target-staff:checked');
@@ -432,16 +432,18 @@ function executePdfExport() {
     closePdfModal();
     showLoading(true); 
 
-    // --- PDF生成ロジック ---
-    
     // 印刷用の一時テーブルを作成
     const printWrapper = document.createElement('div');
-    printWrapper.style.position = 'absolute';
-    printWrapper.style.top = '-9999px';
+    
+    // ★修正: スマホで見切れないように配置と幅を調整
+    printWrapper.style.position = 'absolute'; // fixedだとhtml2canvasがずれることがあるためabsolute
+    printWrapper.style.top = '0';
     printWrapper.style.left = '0';
+    printWrapper.style.zIndex = '-9999'; // 裏側に隠す
     printWrapper.style.background = '#fff';
     printWrapper.style.padding = '20px';
-    printWrapper.style.width = 'fit-content';
+    // ★重要: 幅を固定してデスクトップレイアウトを強制する
+    printWrapper.style.width = '1000px'; 
     printWrapper.style.fontFamily = 'sans-serif';
     
     // タイトル
@@ -467,7 +469,6 @@ function executePdfExport() {
     thCorner.style.background = '#fafafa';
     thCorner.style.padding = '8px';
     thCorner.style.width = '60px';
-    // sticky無効化
     thCorner.style.position = 'static'; 
     trHead.appendChild(thCorner);
 
@@ -540,8 +541,11 @@ function executePdfExport() {
     
     document.body.appendChild(printWrapper);
 
-    // 3. 画像化 & PDF保存
-    html2canvas(printWrapper, { scale: 2 }).then(canvas => { 
+    // 3. 画像化 & PDF保存 (★修正: windowWidth指定)
+    html2canvas(printWrapper, { 
+        scale: 2,
+        windowWidth: 1200 // 仮想的に横幅1200pxの画面としてレンダリングさせる
+    }).then(canvas => { 
         const imgData = canvas.toDataURL('image/png'); 
         const { jsPDF } = window.jspdf; 
         const doc = new jsPDF({ orientation: 'portrait' }); 
