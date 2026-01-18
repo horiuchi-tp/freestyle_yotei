@@ -42,7 +42,7 @@ header {
     background: transparent; border: none; font-size: 24px; color: #3498db; padding: 0 20px; cursor: pointer;
 }
 
-/* ★ヘッダーボタン */
+/* ヘッダーボタン */
 .header-actions-row {
     display: flex; gap: 8px; justify-content: space-between;
 }
@@ -64,18 +64,19 @@ header {
 .btn-icon:active { transform: scale(0.96); background: #eee; }
 
 
-/* テーブルエリア（修正: 余白と高さを調整） */
+/* テーブルエリア */
 #table-container {
     width: 100%; overflow: auto; 
-    /* ヘッダー(約60px) + 下部ツールバー(140px) + 余白 を考慮 */
-    height: calc(100vh - 200px); 
+    height: calc(100vh - 240px); /* ヘッダーとフッター分を引く */
     background: white;
     -webkit-overflow-scrolling: touch;
-    
-    /* ★修正: 最下行が隠れないように下部に大きな余白を追加 */
-    padding-bottom: 200px; 
+    transition: height 0.3s ease; /* メニュー開閉時に滑らかに動く */
+    padding-bottom: 200px; /* スクロール最下部の余白確保 */
     box-sizing: border-box;
-    transition: height 0.3s ease; /* メニュー開閉時に滑らかに高さを変える */
+}
+/* 追加: メニューが閉じた時はテーブルを広くする */
+body.menu-closed #table-container {
+    height: calc(100vh - 140px); /* ツールバーが下がった分広げる */
 }
 
 table { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; }
@@ -113,7 +114,7 @@ td.selected {
     border: 3px solid #3498db; background-color: rgba(52, 152, 219, 0.2) !important;
 }
 
-/* 下部ツールバー（修正: 開閉機能の追加） */
+/* 下部ツールバー */
 #toolbar {
     position: fixed; bottom: 0; left: 0; width: 100%; height: 140px;
     background: #fff; border-top: 1px solid #ddd; 
@@ -122,21 +123,18 @@ td.selected {
     transition: transform 0.3s ease; /* 開閉アニメーション */
 }
 
-/* ★修正: ツールバーが隠れた時のスタイル */
+/* 追加: ツールバーが隠れた時のスタイル */
 #toolbar.toolbar-hidden {
     transform: translateY(100px); /* 下に隠す（ヘッダー部分だけ残す） */
 }
 
-/* ★修正: ツールバーが隠れた時、テーブルを広くする */
-body.menu-closed #table-container {
-    height: calc(100vh - 100px); /* ツールバーが下がった分広げる */
-}
-
+/* ツールバーヘッダー */
 .toolbar-header {
     padding: 8px 15px; display: flex; justify-content: space-between; align-items: center;
     border-bottom: 1px solid #f0f0f0;
 }
-/* ボタンの回転アニメーション */
+
+/* 開閉ボタンの回転 */
 #toolbar-toggle-btn {
     transition: transform 0.3s;
 }
@@ -193,6 +191,33 @@ body.menu-closed #toolbar-toggle-btn {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 .color-swatch.selected { border: 3px solid #333; transform: scale(1.1); }
+
+/* 追加: PDF選択用チェックボックスリスト */
+.checkbox-list {
+    text-align: left;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    -webkit-overflow-scrolling: touch;
+}
+.checkbox-item {
+    display: block;
+    padding: 10px;
+    border-bottom: 1px solid #f9f9f9;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+.checkbox-item:last-child { border-bottom: none; }
+.checkbox-item input {
+    margin: 0 10px 0 0 !important;
+    width: auto !important;
+    transform: scale(1.3);
+}
 
 .modal-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
 .modal-actions div { display: flex; gap: 10px; }

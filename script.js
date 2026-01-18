@@ -29,7 +29,6 @@ function postToGAS(payloadObj) {
     return fetch(GAS_API_URL, {
         method: 'POST',
         headers: { "Content-Type": "text/plain" },
-        // GitHubなどの外部からアクセスする場合、リダイレクトを明示的に許可すると安定します
         redirect: 'follow', 
         body: JSON.stringify(payloadObj)
     })
@@ -41,42 +40,31 @@ function postToGAS(payloadObj) {
 }
 
 // ==========================================
-// アプリ制御 (高速化・並列処理版)
+// アプリ制御 (高速化版)
 // ==========================================
 function refreshView(needsConfig = true) {
     showLoading(true);
 
-    // 通信処理の配列を作成
-    const requests = [];
+    let promiseChain = Promise.resolve();
 
-    // 1. 設定取得のリクエスト（必要な場合のみ）
     if (needsConfig) {
-        requests.push(postToGAS({ action: 'getConfig' }));
-    } else {
-        requests.push(Promise.resolve(null)); // 何もしないPromise
+        promiseChain = promiseChain.then(() => postToGAS({ action: 'getConfig' }))
+            .then(configData => {
+                if (configData.status === 'success') {
+                    staffList = configData.staff;
+                    shiftSettings = configData.shifts;
+                } else {
+                    throw new Error(configData.message);
+                }
+            });
     }
 
-    // 2. シフトデータ取得のリクエスト（常に実行）
-    requests.push(postToGAS({ action: 'getShifts', year: currentYear, month: currentMonth }));
-
-    // ★高速化の肝：Promise.allで並列実行
-    Promise.all(requests)
-    .then(([configData, shiftRes]) => {
-        // --- 設定データの反映 ---
-        if (configData) {
-            if (configData.status === 'success') {
-                staffList = configData.staff;
-                shiftSettings = configData.shifts;
-            } else {
-                throw new Error(configData.message);
-            }
-        }
-
-        // --- シフトデータの反映 ---
+    promiseChain.then(() => postToGAS({ action: 'getShifts', year: currentYear, month: currentMonth }))
+    .then(shiftRes => {
         if (shiftRes.status === 'success') {
             shiftData = shiftRes.data;
-            renderToolbar(); // アイコン再描画
-            renderTable();   // テーブル再描画
+            renderToolbar(); // ツールバー（アイコン）の再描画
+            renderTable();   // テーブルの再描画
             document.getElementById('current-month-display').innerText = `${currentMonth}月`;
             showLoading(false);
         } else {
@@ -111,7 +99,6 @@ function changeMonth(diff) {
     if (currentMonth > 12) { currentMonth = 1; currentYear++; }
     else if (currentMonth < 1) { currentMonth = 12; currentYear--; }
     clearSelection();
-    // ★高速化ポイント: 月移動時は設定（スタッフ等）を再読込せず、シフトだけ読み込む
     refreshView(false);
 }
 
@@ -127,7 +114,7 @@ function closeHelpModal() {
 
 
 // ==========================================
-// 編集・保存 (変更時は refreshView(true) で全更新)
+// 編集・保存
 // ==========================================
 function saveDataConfirm() {
     showConfirm('保存', '現在の内容で保存しますか？', executeSaveData);
@@ -253,13 +240,11 @@ function renderTable() {
             td.dataset.value = val;
             updateCellStyle(td, val);
             
-            // タッチ操作ロジック
             td.addEventListener('touchstart', handleTouchStart, {passive: false});
             td.addEventListener('touchmove', handleTouchMove, {passive: false});
             td.addEventListener('touchend', handleTouchEnd);
             td.addEventListener('touchcancel', handleTouchEnd);
 
-            // マウス操作（PC用）
             td.onmousedown = (e) => { isDragging = true; toggleSelection(td); e.preventDefault(); };
             td.onmouseover = () => { if(isDragging) addSelection(td); };
             td.onmouseup = () => { isDragging = false; };
@@ -303,7 +288,7 @@ function renderToolbar() {
 }
 
 // ==========================================
-// ツールバー開閉制御（新機能）
+// 追加: ツールバー開閉制御
 // ==========================================
 function toggleToolbar() {
     const toolbar = document.getElementById('toolbar');
@@ -315,82 +300,54 @@ function toggleToolbar() {
 }
 
 // ==========================================
-// 共通機能（タッチ・長押し・スクロール判定）
+// 共通機能
 // ==========================================
 
 function handleTouchStart(e) {
-    // タッチ開始位置を記録
     const touch = e.touches[0];
     startX = touch.clientX;
     startY = touch.clientY;
-    
-    isScrolling = false;     // スクロールフラグ初期化
-    isSelectionMode = false; // 選択モード初期化
+    isScrolling = false;     
+    isSelectionMode = false; 
 
-    // 長押しタイマー開始 (0.5秒 = 500ms)
     longPressTimer = setTimeout(() => {
-        // 0.5秒間、指が大きく動かなければ「選択モード」発動
         if (!isScrolling) {
             isSelectionMode = true;
-            if (navigator.vibrate) navigator.vibrate(50); // ブルっとさせる
-            
+            if (navigator.vibrate) navigator.vibrate(50); 
             let td = e.target.closest('td');
-            if(td) {
-                addSelection(td); // 最初のセルを選択
-            }
+            if(td) { addSelection(td); }
         }
     }, 500); 
 }
 
 function handleTouchMove(e) {
     const touch = e.touches[0];
-
-    // 選択モード中の場合：スクロールを止めて、なぞって選択
     if (isSelectionMode) {
-        if (e.cancelable) e.preventDefault(); // スクロール禁止
-        
-        // 指の下にある要素を取得
+        if (e.cancelable) e.preventDefault(); 
         let target = document.elementFromPoint(touch.clientX, touch.clientY);
         if (target && target.tagName === 'TD' && target.id.startsWith('cell_')) {
             addSelection(target);
         }
         return;
     }
-
-    // まだ長押し確定前の場合：指が動いたらタイマー解除（ただのスクロールとみなす）
     const moveX = Math.abs(touch.clientX - startX);
     const moveY = Math.abs(touch.clientY - startY);
-
-    if (moveX > 10 || moveY > 10) { // 10px以上動いたらスクロールと判定
+    if (moveX > 10 || moveY > 10) { 
         isScrolling = true;
-        if(longPressTimer) {
-            clearTimeout(longPressTimer); // 長押しキャンセル
-            longPressTimer = null;
-        }
+        if(longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     }
 }
 
 function handleTouchEnd(e) {
-    // 指が離れたらタイマー解除
-    if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-    }
-
-    // 選択モードでもなく、スクロールもしていない場合 ＝ 「単発タップ」
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     if (!isSelectionMode && !isScrolling) {
         let td = e.target.closest('td');
-        if (td) {
-            toggleSelection(td); // タップで選択/解除
-        }
+        if (td) { toggleSelection(td); }
     }
-
-    // すべてリセット
     isSelectionMode = false;
     isScrolling = false;
 }
 
-// 既存の選択ロジック（そのまま維持）
 function toggleSelection(td) { if(selectedCells.has(td.id)) { selectedCells.delete(td.id); td.classList.remove('selected'); } else { addSelection(td); } }
 function addSelection(td) { if(!selectedCells.has(td.id)){ selectedCells.add(td.id); td.classList.add('selected'); } }
 function clearSelection() { selectedCells.forEach(id => { let el = document.getElementById(id); if(el) el.classList.remove('selected'); }); selectedCells.clear(); }
@@ -434,19 +391,180 @@ function showConfirm(title, message, callback) {
 }
 function closeMsgModal() { document.getElementById('msg-modal-overlay').style.display = 'none'; modalCallback = null; }
 
-function downloadPDF() { 
+// ==========================================
+// PDF出力 (修正版: モーダル選択後に出力)
+// ==========================================
+
+// モーダルを開いてスタッフ選択を促す
+function openPdfModal() {
+    if(!staffList || staffList.length === 0) { showAlert('error', 'エラー', 'スタッフがいません'); return; }
+    
+    const container = document.getElementById('pdf-staff-list');
+    container.innerHTML = "";
+    
+    // 現在のstaffListに基づいてチェックボックスを生成
+    // デフォルトは全員チェック
+    staffList.forEach(staff => {
+        const label = document.createElement('label');
+        label.className = 'checkbox-item';
+        label.innerHTML = `<input type="checkbox" class="pdf-target-staff" value="${staff}" checked> ${staff}`;
+        container.appendChild(label);
+    });
+    
+    document.getElementById('pdf-modal-overlay').style.display = 'flex';
+}
+
+function closePdfModal() {
+    document.getElementById('pdf-modal-overlay').style.display = 'none';
+}
+
+// 実際にPDFを作成する（モーダルの「作成する」ボタンから呼ばれる）
+function executePdfExport() {
+    // 選択されたスタッフを取得
+    const checkboxes = document.querySelectorAll('.pdf-target-staff:checked');
+    const targetStaffs = Array.from(checkboxes).map(cb => cb.value);
+    
+    if(targetStaffs.length === 0) {
+        showAlert('error', 'エラー', '出力するスタッフを選択してください');
+        return;
+    }
+
+    closePdfModal();
     showLoading(true); 
-    const table = document.getElementById('shift-table'); 
-    html2canvas(table, { scale: 2 }).then(canvas => { 
+
+    // --- PDF生成ロジック ---
+    
+    // 印刷用の一時テーブルを作成
+    const printWrapper = document.createElement('div');
+    printWrapper.style.position = 'absolute';
+    printWrapper.style.top = '-9999px';
+    printWrapper.style.left = '0';
+    printWrapper.style.background = '#fff';
+    printWrapper.style.padding = '20px';
+    printWrapper.style.width = 'fit-content';
+    printWrapper.style.fontFamily = 'sans-serif';
+    
+    // タイトル
+    const title = document.createElement('h2');
+    title.innerText = `${currentYear}年 ${currentMonth}月 シフト表`;
+    title.style.textAlign = 'center';
+    title.style.marginBottom = '10px';
+    printWrapper.appendChild(title);
+
+    const table = document.createElement('table');
+    table.style.borderCollapse = 'collapse';
+    table.style.width = '100%';
+    const borderStyle = '1px solid #ccc';
+
+    // -- ヘッダー行 --
+    const thead = document.createElement('thead');
+    const trHead = document.createElement('tr');
+    
+    // 日付列見出し
+    const thCorner = document.createElement('th');
+    thCorner.innerText = '日';
+    thCorner.style.border = borderStyle;
+    thCorner.style.background = '#fafafa';
+    thCorner.style.padding = '8px';
+    thCorner.style.width = '60px';
+    // sticky無効化
+    thCorner.style.position = 'static'; 
+    trHead.appendChild(thCorner);
+
+    // スタッフ列見出し
+    targetStaffs.forEach(s => {
+        const th = document.createElement('th');
+        th.innerText = s;
+        th.style.border = borderStyle;
+        th.style.background = '#fafafa';
+        th.style.padding = '8px';
+        th.style.minWidth = '60px';
+        th.style.position = 'static'; 
+        trHead.appendChild(th);
+    });
+    thead.appendChild(trHead);
+    table.appendChild(thead);
+
+    // -- ボディ行 --
+    const tbody = document.createElement('tbody');
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dateObj = new Date(currentYear, currentMonth - 1, day);
+        const tr = document.createElement('tr');
+
+        // 日付セル
+        const thDate = document.createElement('th');
+        thDate.innerText = day;
+        thDate.style.border = borderStyle;
+        thDate.style.padding = '5px';
+        thDate.style.textAlign = 'center';
+        thDate.style.position = 'static';
+        
+        if (dateObj.getDay() === 0) { 
+            thDate.style.color = '#e74c3c'; 
+            thDate.style.backgroundColor = '#fff5f5'; 
+        } else if (dateObj.getDay() === 6) { 
+            thDate.style.color = '#3498db'; 
+            thDate.style.backgroundColor = '#f0f8ff'; 
+        } else {
+            thDate.style.backgroundColor = '#fff';
+        }
+        tr.appendChild(thDate);
+
+        // 各スタッフのシフトセル
+        targetStaffs.forEach(staff => {
+            const td = document.createElement('td');
+            td.style.border = borderStyle;
+            td.style.textAlign = 'center';
+            td.style.verticalAlign = 'middle';
+            td.style.height = '40px';
+            td.style.fontSize = '18px';
+            td.style.fontWeight = 'bold';
+            
+            const record = shiftData.find(d => d.date === dateStr && d.staff === staff);
+            const val = record ? record.shift : "";
+            td.innerText = val;
+
+            const setting = shiftSettings.find(s => s.label === val);
+            td.style.backgroundColor = setting ? setting.color : "#fff";
+            td.style.color = "#333";
+
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    printWrapper.appendChild(table);
+    
+    document.body.appendChild(printWrapper);
+
+    // 3. 画像化 & PDF保存
+    html2canvas(printWrapper, { scale: 2 }).then(canvas => { 
         const imgData = canvas.toDataURL('image/png'); 
         const { jsPDF } = window.jspdf; 
         const doc = new jsPDF({ orientation: 'portrait' }); 
-        const imgProps = doc.getImageProperties(imgData); 
+        
         const pdfWidth = doc.internal.pageSize.getWidth(); 
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width; 
-        doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight); 
+        const imgProps = doc.getImageProperties(imgData); 
+        
+        // 幅合わせで縮小
+        const margin = 10;
+        const availableWidth = pdfWidth - (margin * 2);
+        const ratio = availableWidth / imgProps.width;
+        const printHeight = imgProps.height * ratio;
+
+        doc.addImage(imgData, 'PNG', margin, margin, availableWidth, printHeight); 
         doc.save(`shift_${currentYear}_${currentMonth}.pdf`); 
+        
+        document.body.removeChild(printWrapper);
         showLoading(false); 
         showAlert('success', '完了', 'PDFを保存しました'); 
-    }).catch(err => { showLoading(false); showAlert('error', 'エラー', err.toString()); }); 
+    }).catch(err => { 
+        console.error(err);
+        if(document.body.contains(printWrapper)) document.body.removeChild(printWrapper);
+        showLoading(false); 
+        showAlert('error', 'エラー', err.toString()); 
+    }); 
 }
