@@ -392,7 +392,7 @@ function showConfirm(title, message, callback) {
 function closeMsgModal() { document.getElementById('msg-modal-overlay').style.display = 'none'; modalCallback = null; }
 
 // ==========================================
-// PDF出力 (修正版: モーダル選択 & スマホ対応)
+// PDF出力 (修正版: スマホでも31日まで完全出力)
 // ==========================================
 
 // モーダルを開いてスタッフ選択を促す
@@ -435,15 +435,15 @@ function executePdfExport() {
     // 印刷用の一時テーブルを作成
     const printWrapper = document.createElement('div');
     
-    // ★修正: スマホで見切れないように配置と幅を調整
-    printWrapper.style.position = 'absolute'; // fixedだとhtml2canvasがずれることがあるためabsolute
+    // ★修正: スマホで見切れないように配置と幅を大幅に拡張
+    printWrapper.style.position = 'absolute';
     printWrapper.style.top = '0';
     printWrapper.style.left = '0';
     printWrapper.style.zIndex = '-9999'; // 裏側に隠す
     printWrapper.style.background = '#fff';
     printWrapper.style.padding = '20px';
-    // ★重要: 幅を固定してデスクトップレイアウトを強制する
-    printWrapper.style.width = '1000px'; 
+    // ★重要: 幅を2500pxに設定（31日分が確実に収まるサイズ）
+    printWrapper.style.width = '2500px'; 
     printWrapper.style.fontFamily = 'sans-serif';
     
     // タイトル
@@ -541,10 +541,10 @@ function executePdfExport() {
     
     document.body.appendChild(printWrapper);
 
-    // 3. 画像化 & PDF保存 (★修正: windowWidth指定)
+    // 3. 画像化 & PDF保存 (★修正: windowWidthを一時領域と同じ2500pxに設定)
     html2canvas(printWrapper, { 
         scale: 2,
-        windowWidth: 1200 // 仮想的に横幅1200pxの画面としてレンダリングさせる
+        windowWidth: 2500 // スマホでも横幅2500pxの画面としてレンダリングさせる
     }).then(canvas => { 
         const imgData = canvas.toDataURL('image/png'); 
         const { jsPDF } = window.jspdf; 
