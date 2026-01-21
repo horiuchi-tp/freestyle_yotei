@@ -207,30 +207,43 @@ function renderTable() {
     const tbody = document.getElementById('table-body');
     thead.innerHTML = ""; tbody.innerHTML = "";
     
+    // 曜日配列
+    const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
+
     if(!staffList || staffList.length === 0) {
         tbody.innerHTML = "<tr><td colspan='5' style='padding:20px; text-align:center;'>スタッフがいません。<br>上の編集ボタンから追加してください。</td></tr>";
         return;
     }
 
+    // ヘッダー行（スタッフ名）
     let trHead = document.createElement('tr');
-    trHead.innerHTML = '<th style="width:50px;">日</th>';
+    trHead.innerHTML = '<th style="width:auto;">日</th>';
     staffList.forEach(s => {
-        let th = document.createElement('th'); th.innerText = s; trHead.appendChild(th);
+        let th = document.createElement('th'); 
+        th.innerText = s; 
+        // ★文字サイズ2倍・太字クラス適用
+        th.classList.add('staff-header'); 
+        trHead.appendChild(th);
     });
     thead.appendChild(trHead);
 
+    // ボディ行
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
         let dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         let dateObj = new Date(currentYear, currentMonth - 1, day);
         let tr = document.createElement('tr');
         
+        // 日付セル（曜日付き）
         let thDate = document.createElement('th');
-        thDate.innerText = `${day}`; // シンプルに数字のみ
+        const dayOfWeekStr = weekDays[dateObj.getDay()];
+        thDate.innerHTML = `${day}<span class="weekday-label">(${dayOfWeekStr})</span>`;
+        
         if (dateObj.getDay() === 0) thDate.className = "sunday";
         if (dateObj.getDay() === 6) thDate.className = "saturday";
         tr.appendChild(thDate);
 
+        // シフトセル
         staffList.forEach(staff => {
             let td = document.createElement('td');
             let cellId = `cell_${dateStr}_${staff}`;
@@ -240,11 +253,11 @@ function renderTable() {
             td.dataset.value = val;
             updateCellStyle(td, val);
             
+            // タッチイベント設定
             td.addEventListener('touchstart', handleTouchStart, {passive: false});
             td.addEventListener('touchmove', handleTouchMove, {passive: false});
             td.addEventListener('touchend', handleTouchEnd);
             td.addEventListener('touchcancel', handleTouchEnd);
-
             td.onmousedown = (e) => { isDragging = true; toggleSelection(td); e.preventDefault(); };
             td.onmouseover = () => { if(isDragging) addSelection(td); };
             td.onmouseup = () => { isDragging = false; };
@@ -252,8 +265,7 @@ function renderTable() {
         });
         tbody.appendChild(tr);
     }
-}
-document.body.onmouseup = () => isDragging = false;
+}document.body.onmouseup = () => isDragging = false;
 
 function updateCellStyle(td, val) {
     td.innerText = val;
@@ -432,19 +444,18 @@ function executePdfExport() {
     closePdfModal();
     showLoading(true); 
 
-    // 印刷用の一時テーブルを作成
+    // 印刷用の一時コンテナを作成
     const printWrapper = document.createElement('div');
+    printWrapper.id = 'print-wrapper-container';
     
-    // ★修正: スマホで見切れないように配置と幅を大幅に拡張
+    // 画面外に配置。中身に応じて幅が自然に広がる設定
     printWrapper.style.position = 'absolute';
     printWrapper.style.top = '0';
     printWrapper.style.left = '0';
-    printWrapper.style.zIndex = '-9999'; // 裏側に隠す
-    printWrapper.style.background = '#fff';
-    printWrapper.style.padding = '20px';
-    // ★重要: 幅を2500pxに設定（31日分が確実に収まるサイズ）
-    printWrapper.style.width = '2500px'; 
-    printWrapper.style.fontFamily = 'sans-serif';
+    printWrapper.style.zIndex = '-9999';
+    printWrapper.style.visibility = 'hidden'; 
+    printWrapper.style.width = 'max-content'; // コンテンツ幅に合わせる
+    printWrapper.style.padding = '0';         // 余白リセット
     
     // タイトル
     const title = document.createElement('h2');
@@ -453,10 +464,13 @@ function executePdfExport() {
     title.style.marginBottom = '10px';
     printWrapper.appendChild(title);
 
+    // テーブル生成
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
-    table.style.width = '100%';
+    table.style.width = 'auto'; // 幅自動
     const borderStyle = '1px solid #ccc';
+
+    const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
 
     // -- ヘッダー行 --
     const thead = document.createElement('thead');
@@ -467,20 +481,17 @@ function executePdfExport() {
     thCorner.innerText = '日';
     thCorner.style.border = borderStyle;
     thCorner.style.background = '#fafafa';
-    thCorner.style.padding = '8px';
-    thCorner.style.width = '60px';
-    thCorner.style.position = 'static'; 
+    thCorner.style.padding = '5px';
     trHead.appendChild(thCorner);
 
-    // スタッフ列見出し
+    // スタッフ列見出し（UIと同じスタイル継承）
     targetStaffs.forEach(s => {
         const th = document.createElement('th');
         th.innerText = s;
         th.style.border = borderStyle;
         th.style.background = '#fafafa';
-        th.style.padding = '8px';
-        th.style.minWidth = '60px';
-        th.style.position = 'static'; 
+        th.className = 'staff-header'; // 2倍サイズ適用
+        th.style.backgroundColor = '#fafafa'; 
         trHead.appendChild(th);
     });
     thead.appendChild(trHead);
@@ -497,11 +508,12 @@ function executePdfExport() {
 
         // 日付セル
         const thDate = document.createElement('th');
-        thDate.innerText = day;
+        const dayOfWeekStr = weekDays[dateObj.getDay()];
+        thDate.innerHTML = `${day}<span class="weekday-label">(${dayOfWeekStr})</span>`;
+        
         thDate.style.border = borderStyle;
         thDate.style.padding = '5px';
         thDate.style.textAlign = 'center';
-        thDate.style.position = 'static';
         
         if (dateObj.getDay() === 0) { 
             thDate.style.color = '#e74c3c'; 
@@ -520,8 +532,9 @@ function executePdfExport() {
             td.style.border = borderStyle;
             td.style.textAlign = 'center';
             td.style.verticalAlign = 'middle';
-            td.style.height = '40px';
-            td.style.fontSize = '18px';
+            td.style.padding = '5px';
+            // 文字サイズ等
+            td.style.fontSize = '24px';
             td.style.fontWeight = 'bold';
             
             const record = shiftData.find(d => d.date === dateStr && d.staff === staff);
@@ -541,25 +554,47 @@ function executePdfExport() {
     
     document.body.appendChild(printWrapper);
 
-    // 3. 画像化 & PDF保存 (★修正: windowWidthを一時領域と同じ2500pxに設定)
+    // 画像化 & PDF保存（A4用紙1枚・上詰め・左右センター）
     html2canvas(printWrapper, { 
-        scale: 2,
-        windowWidth: 2500 // スマホでも横幅2500pxの画面としてレンダリングさせる
+        scale: 2, 
     }).then(canvas => { 
         const imgData = canvas.toDataURL('image/png'); 
         const { jsPDF } = window.jspdf; 
-        const doc = new jsPDF({ orientation: 'portrait' }); 
         
-        const pdfWidth = doc.internal.pageSize.getWidth(); 
-        const imgProps = doc.getImageProperties(imgData); 
+        // A4縦向き
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }); 
         
-        // 幅合わせで縮小
-        const margin = 10;
+        const pdfWidth = doc.internal.pageSize.getWidth();   // 210mm
+        const pdfHeight = doc.internal.pageSize.getHeight(); // 297mm
+        const margin = 10; // 上下左右の余白 10mm
+        
         const availableWidth = pdfWidth - (margin * 2);
-        const ratio = availableWidth / imgProps.width;
-        const printHeight = imgProps.height * ratio;
+        const availableHeight = pdfHeight - (margin * 2);
 
-        doc.addImage(imgData, 'PNG', margin, margin, availableWidth, printHeight); 
+        // 画像とページの比率計算
+        const imgRatio = canvas.width / canvas.height;
+        const pageRatio = availableWidth / availableHeight;
+
+        let finalWidth, finalHeight;
+
+        // 全ての日付が入るように縮小計算
+        if (imgRatio > pageRatio) {
+            // 幅に合わせて縮小
+            finalWidth = availableWidth;
+            finalHeight = finalWidth / imgRatio;
+        } else {
+            // 高さに合わせて縮小（縦長の場合こちらが適用されやすい）
+            finalHeight = availableHeight;
+            finalWidth = finalHeight * imgRatio;
+        }
+
+        // 座標計算
+        // x: 左右はセンター合わせ
+        const x = (pdfWidth - finalWidth) / 2;
+        // y: 上はマージン位置（上詰め）
+        const y = margin; 
+
+        doc.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight); 
         doc.save(`shift_${currentYear}_${currentMonth}.pdf`); 
         
         document.body.removeChild(printWrapper);

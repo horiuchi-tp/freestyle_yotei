@@ -261,3 +261,105 @@ body.menu-closed #toolbar-toggle-btn {
 .msg-footer { padding: 15px; background: #f9f9f9; display: flex; justify-content: center; gap: 15px; }
 .type-error .msg-header { background-color: #e74c3c; } 
 .type-success .msg-header { background-color: #2ecc71; }
+
+/* ==========================================
+   追加スタイル: スタッフ名サイズ変更・曜日表示
+   ========================================== */
+
+/* スタッフ名（ヘッダー）のスタイル変更 */
+.staff-header {
+    /* 元の14pxの2倍 */
+    font-size: 28px !important;
+    /* 太文字（元のスタイルもboldですが念のため指定） */
+    font-weight: 900 !important;
+}
+
+/* 日付横の曜日ラベル */
+.weekday-label {
+    /* 日付数字(20px)に対して少し小さくしてバランスを取る */
+    font-size: 0.7em;
+    font-weight: normal;
+    margin-left: 2px;
+    display: inline-block; 
+    line-height: 1;
+}
+
+/* セル内のレイアウト調整（曜日が入って窮屈にならないように微調整） */
+tbody th {
+    line-height: 1.2; /* 行間を少し詰める */
+    padding: 0 2px;   /* 左右のパディングを少し詰める */
+}
+
+
+/* ▼▼▼ ここから下を style.css の一番下に貼り付けてください ▼▼▼ */
+
+/* テーブルセルの幅自動調整（60px固定を解除し、名前に合わせる） */
+th, td {
+    min-width: auto !important; /* 固定幅を強制解除 */
+    width: auto !important;
+    white-space: nowrap;        /* 勝手に折り返さない */
+    padding: 0 6px !important;  /* 読みやすいよう余白調整 */
+}
+
+/* スタッフ名（ヘッダー）のスタイル（2倍サイズ・太字） */
+.staff-header {
+    font-size: 28px !important;
+    font-weight: 900 !important;
+    line-height: 1.2;
+    padding: 10px 5px !important;
+}
+
+/* 日付横の曜日ラベル */
+.weekday-label {
+    font-size: 0.7em;
+    font-weight: normal;
+    margin-left: 2px;
+    display: inline-block;
+}
+
+/* PDF作成時の一時領域（画面外で描画するため） */
+#print-wrapper-container {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    background: white;
+}
+
+
+/* ▼▼▼ style.cssの一番下に追加（または置き換え）してください ▼▼▼ */
+
+/* テーブル全体のレイアウト設定（固定幅を解除） */
+table {
+    table-layout: auto !important; /* コンテンツに合わせて幅を伸縮 */
+    width: auto !important;        /* 100%強制を解除 */
+    min-width: 100%;               /* 画面幅より小さい場合は画面幅に合わせる */
+}
+
+/* セルの幅と余白の設定 */
+th, td {
+    min-width: auto !important; /* 60px固定を解除 */
+    width: auto !important;     /* 文字数に合わせる */
+    white-space: nowrap;        /* 折り返し禁止 */
+    padding: 0 4px !important;  /* 余白を詰める */
+    box-sizing: border-box;
+}
+
+/* ヘッダー（スタッフ名）のスタイル（前回同様） */
+.staff-header {
+    font-size: 28px !important;
+    font-weight: 900 !important;
+    line-height: 1.2;
+    padding: 10px 5px !important;
+}
+
+/* 曜日ラベルのスタイル（前回同様） */
+.weekday-label {
+    font-size: 0.7em;
+    font-weight: normal;
+    margin-left: 2px;
+    display: inline-block;
+}
+
+/* PDF一時領域 */
+#print-wrapper-container {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    background: white;
+}
