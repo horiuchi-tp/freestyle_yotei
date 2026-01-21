@@ -15,15 +15,15 @@ const PRESET_COLORS = ["#ffcdd2", "#f8bbd0", "#e1bee7", "#d1c4e9", "#c5cae9", "#
 let selectedNewColor = PRESET_COLORS[0];
 
 // タッチ操作制御用
-let longPressTimer = null;   // 長押し判定用タイマー
-let isSelectionMode = false; // 選択モードかどうか
-let startX = 0;              // タッチ開始位置X
-let startY = 0;              // タッチ開始位置Y
-let isScrolling = false;     // スクロール中かどうか
+let longPressTimer = null;   
+let isSelectionMode = false; 
+let startX = 0;              
+let startY = 0;              
+let isScrolling = false;     
 
 
 // ==========================================
-// 通信関数 (安定版)
+// 通信関数
 // ==========================================
 function postToGAS(payloadObj) {
     return fetch(GAS_API_URL, {
@@ -40,11 +40,10 @@ function postToGAS(payloadObj) {
 }
 
 // ==========================================
-// アプリ制御 (高速化版)
+// アプリ制御
 // ==========================================
 function refreshView(needsConfig = true) {
     showLoading(true);
-
     let promiseChain = Promise.resolve();
 
     if (needsConfig) {
@@ -63,8 +62,8 @@ function refreshView(needsConfig = true) {
     .then(shiftRes => {
         if (shiftRes.status === 'success') {
             shiftData = shiftRes.data;
-            renderToolbar(); // ツールバー（アイコン）の再描画
-            renderTable();   // テーブルの再描画
+            renderToolbar();
+            renderTable();
             document.getElementById('current-month-display').innerText = `${currentMonth}月`;
             showLoading(false);
         } else {
@@ -85,7 +84,7 @@ function attemptLogin() {
         if (data.status === 'success') {
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app-screen').style.display = 'block';
-            refreshView(true); // 初回は設定も読み込む
+            refreshView(true);
         } else {
             showLoading(false);
             showAlert('error', '失敗', data.message);
@@ -103,22 +102,12 @@ function changeMonth(diff) {
 }
 
 // ==========================================
-// 説明書モーダル制御
+// モーダル・保存系
 // ==========================================
-function openHelpModal() {
-    document.getElementById('help-modal-overlay').style.display = 'flex';
-}
-function closeHelpModal() {
-    document.getElementById('help-modal-overlay').style.display = 'none';
-}
+function openHelpModal() { document.getElementById('help-modal-overlay').style.display = 'flex'; }
+function closeHelpModal() { document.getElementById('help-modal-overlay').style.display = 'none'; }
 
-
-// ==========================================
-// 編集・保存
-// ==========================================
-function saveDataConfirm() {
-    showConfirm('保存', '現在の内容で保存しますか？', executeSaveData);
-}
+function saveDataConfirm() { showConfirm('保存', '現在の内容で保存しますか？', executeSaveData); }
 
 function executeSaveData() {
     let payload = [];
@@ -148,11 +137,7 @@ function executeSaveData() {
     .catch(err => { showLoading(false); showAlert('error', '通信エラー', err.toString()); });
 }
 
-// スタッフ追加
-function openStaffModal() {
-    document.getElementById('staff-modal-overlay').style.display = 'flex';
-    document.getElementById('new-staff-name').value = "";
-}
+function openStaffModal() { document.getElementById('staff-modal-overlay').style.display = 'flex'; document.getElementById('new-staff-name').value = ""; }
 function closeStaffModal() { document.getElementById('staff-modal-overlay').style.display = 'none'; }
 function saveNewStaff() {
     const name = document.getElementById('new-staff-name').value;
@@ -175,7 +160,6 @@ function deleteStaff() {
     });
 }
 
-// アイコン編集
 function openModal() { document.getElementById('modal-overlay').style.display = 'flex'; document.getElementById('new-shift-label').value = ""; renderColorPicker(); }
 function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
 function saveNewIcon() {
@@ -207,30 +191,42 @@ function renderTable() {
     const tbody = document.getElementById('table-body');
     thead.innerHTML = ""; tbody.innerHTML = "";
     
+    // 曜日配列
+    const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
+
     if(!staffList || staffList.length === 0) {
         tbody.innerHTML = "<tr><td colspan='5' style='padding:20px; text-align:center;'>スタッフがいません。<br>上の編集ボタンから追加してください。</td></tr>";
         return;
     }
 
+    // ヘッダー行（スタッフ名）
     let trHead = document.createElement('tr');
-    trHead.innerHTML = '<th style="width:50px;">日</th>';
+    trHead.innerHTML = '<th style="width:auto;">日</th>';
     staffList.forEach(s => {
-        let th = document.createElement('th'); th.innerText = s; trHead.appendChild(th);
+        let th = document.createElement('th'); 
+        th.innerText = s; 
+        th.classList.add('staff-header'); // 文字サイズ2倍・太字クラス
+        trHead.appendChild(th);
     });
     thead.appendChild(trHead);
 
+    // ボディ行
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
         let dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         let dateObj = new Date(currentYear, currentMonth - 1, day);
         let tr = document.createElement('tr');
         
+        // 日付セル（曜日付き）
         let thDate = document.createElement('th');
-        thDate.innerText = `${day}`; // シンプルに数字のみ
+        const dayOfWeekStr = weekDays[dateObj.getDay()];
+        thDate.innerHTML = `${day}<span class="weekday-label">(${dayOfWeekStr})</span>`;
+        
         if (dateObj.getDay() === 0) thDate.className = "sunday";
         if (dateObj.getDay() === 6) thDate.className = "saturday";
         tr.appendChild(thDate);
 
+        // シフトセル
         staffList.forEach(staff => {
             let td = document.createElement('td');
             let cellId = `cell_${dateStr}_${staff}`;
@@ -244,7 +240,6 @@ function renderTable() {
             td.addEventListener('touchmove', handleTouchMove, {passive: false});
             td.addEventListener('touchend', handleTouchEnd);
             td.addEventListener('touchcancel', handleTouchEnd);
-
             td.onmousedown = (e) => { isDragging = true; toggleSelection(td); e.preventDefault(); };
             td.onmouseover = () => { if(isDragging) addSelection(td); };
             td.onmouseup = () => { isDragging = false; };
@@ -266,7 +261,6 @@ function renderToolbar() {
     const container = document.getElementById('shift-buttons');
     container.innerHTML = "";
     
-    // 消去ボタン
     let btnClear = document.createElement('div');
     btnClear.className = 'shift-btn';
     btnClear.innerText = '消去';
@@ -287,22 +281,16 @@ function renderToolbar() {
     }
 }
 
-// ==========================================
-// ツールバー開閉制御
-// ==========================================
 function toggleToolbar() {
     const toolbar = document.getElementById('toolbar');
     const body = document.body;
-    
-    // クラスを付け外ししてCSSの状態を切り替える
     toolbar.classList.toggle('toolbar-hidden');
     body.classList.toggle('menu-closed');
 }
 
 // ==========================================
-// 共通機能
+// タッチ・共通
 // ==========================================
-
 function handleTouchStart(e) {
     const touch = e.touches[0];
     startX = touch.clientX;
@@ -392,25 +380,20 @@ function showConfirm(title, message, callback) {
 function closeMsgModal() { document.getElementById('msg-modal-overlay').style.display = 'none'; modalCallback = null; }
 
 // ==========================================
-// PDF出力 (修正版: スマホでも31日まで完全出力)
+// PDF出力 (白紙対策済: 画面外配置&強制PCビュー)
 // ==========================================
 
-// モーダルを開いてスタッフ選択を促す
 function openPdfModal() {
     if(!staffList || staffList.length === 0) { showAlert('error', 'エラー', 'スタッフがいません'); return; }
     
     const container = document.getElementById('pdf-staff-list');
     container.innerHTML = "";
-    
-    // 現在のstaffListに基づいてチェックボックスを生成
-    // デフォルトは全員チェック
     staffList.forEach(staff => {
         const label = document.createElement('label');
         label.className = 'checkbox-item';
         label.innerHTML = `<input type="checkbox" class="pdf-target-staff" value="${staff}" checked> ${staff}`;
         container.appendChild(label);
     });
-    
     document.getElementById('pdf-modal-overlay').style.display = 'flex';
 }
 
@@ -418,9 +401,15 @@ function closePdfModal() {
     document.getElementById('pdf-modal-overlay').style.display = 'none';
 }
 
-// 実際にPDFを作成する
+// ▼▼▼ この関数全体を上書きしてください ▼▼▼
+
+// ▼▼▼ executePdfExport関数全体をこれに書き換えてください ▼▼▼
+
+// ▼▼▼ executePdfExport関数全体を、ここから下のコードに書き換えてください ▼▼▼
+
+// ▼▼▼ executePdfExport関数全体をこれに書き換えてください ▼▼▼
 function executePdfExport() {
-    // 選択されたスタッフを取得
+    // 1. 出力対象のスタッフを取得
     const checkboxes = document.querySelectorAll('.pdf-target-staff:checked');
     const targetStaffs = Array.from(checkboxes).map(cb => cb.value);
     
@@ -432,20 +421,19 @@ function executePdfExport() {
     closePdfModal();
     showLoading(true); 
 
-    // 印刷用の一時テーブルを作成
+    // 2. 印刷用コンテナ（白紙対策済み設定）
     const printWrapper = document.createElement('div');
-    
-    // ★修正: スマホで見切れないように配置と幅を大幅に拡張
+    printWrapper.id = 'print-wrapper-container';
     printWrapper.style.position = 'absolute';
     printWrapper.style.top = '0';
-    printWrapper.style.left = '0';
-    printWrapper.style.zIndex = '-9999'; // 裏側に隠す
+    printWrapper.style.left = '-9999px';  // 画面外に配置
+    printWrapper.style.zIndex = '-1';
     printWrapper.style.background = '#fff';
-    printWrapper.style.padding = '20px';
-    // ★重要: 幅を2500pxに設定（31日分が確実に収まるサイズ）
-    printWrapper.style.width = '2500px'; 
+    printWrapper.style.padding = '0';
+    printWrapper.style.width = 'max-content'; // 幅を中身に合わせる
     printWrapper.style.fontFamily = 'sans-serif';
-    
+    printWrapper.style.visibility = 'visible';
+
     // タイトル
     const title = document.createElement('h2');
     title.innerText = `${currentYear}年 ${currentMonth}月 シフト表`;
@@ -453,40 +441,55 @@ function executePdfExport() {
     title.style.marginBottom = '10px';
     printWrapper.appendChild(title);
 
+    // 3. テーブル作成
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
-    table.style.width = '100%';
+    table.style.width = 'auto';
+    table.style.tableLayout = 'auto'; // 列幅自動調整
     const borderStyle = '1px solid #ccc';
 
-    // -- ヘッダー行 --
+    const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
+
+    // ---------------------------------------------------------
+    // ヘッダー行の作成（日付を確実に左にする）
+    // ---------------------------------------------------------
     const thead = document.createElement('thead');
     const trHead = document.createElement('tr');
     
-    // 日付列見出し
-    const thCorner = document.createElement('th');
-    thCorner.innerText = '日';
-    thCorner.style.border = borderStyle;
-    thCorner.style.background = '#fafafa';
-    thCorner.style.padding = '8px';
-    thCorner.style.width = '60px';
-    thCorner.style.position = 'static'; 
-    trHead.appendChild(thCorner);
-
-    // スタッフ列見出し
+    // 【手順A】先に「スタッフ」列をループで作る
     targetStaffs.forEach(s => {
         const th = document.createElement('th');
         th.innerText = s;
         th.style.border = borderStyle;
         th.style.background = '#fafafa';
-        th.style.padding = '8px';
-        th.style.minWidth = '60px';
-        th.style.position = 'static'; 
+        th.className = 'staff-header';
+        th.style.backgroundColor = '#fafafa';
+        th.style.whiteSpace = 'nowrap';
+        th.style.width = 'auto'; 
         trHead.appendChild(th);
     });
+
+    // 【手順B】「日付」列を作成し、強制的に先頭（一番左）に挿入する
+    const thCorner = document.createElement('th');
+    thCorner.innerText = '日';
+    thCorner.style.border = borderStyle;
+    thCorner.style.background = '#fafafa';
+    thCorner.style.padding = '5px';
+    thCorner.style.whiteSpace = 'nowrap';
+    
+    // ★ここが重要：既存の先頭要素の「前」に挿入する
+    if (trHead.firstChild) {
+        trHead.insertBefore(thCorner, trHead.firstChild);
+    } else {
+        trHead.appendChild(thCorner);
+    }
+
     thead.appendChild(trHead);
     table.appendChild(thead);
 
-    // -- ボディ行 --
+    // ---------------------------------------------------------
+    // ボディ行の作成（日付セルを確実に左にする）
+    // ---------------------------------------------------------
     const tbody = document.createElement('tbody');
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
 
@@ -495,34 +498,17 @@ function executePdfExport() {
         const dateObj = new Date(currentYear, currentMonth - 1, day);
         const tr = document.createElement('tr');
 
-        // 日付セル
-        const thDate = document.createElement('th');
-        thDate.innerText = day;
-        thDate.style.border = borderStyle;
-        thDate.style.padding = '5px';
-        thDate.style.textAlign = 'center';
-        thDate.style.position = 'static';
-        
-        if (dateObj.getDay() === 0) { 
-            thDate.style.color = '#e74c3c'; 
-            thDate.style.backgroundColor = '#fff5f5'; 
-        } else if (dateObj.getDay() === 6) { 
-            thDate.style.color = '#3498db'; 
-            thDate.style.backgroundColor = '#f0f8ff'; 
-        } else {
-            thDate.style.backgroundColor = '#fff';
-        }
-        tr.appendChild(thDate);
-
-        // 各スタッフのシフトセル
+        // 【手順A】先に「スタッフ」のシフトセルを作る
         targetStaffs.forEach(staff => {
             const td = document.createElement('td');
             td.style.border = borderStyle;
             td.style.textAlign = 'center';
             td.style.verticalAlign = 'middle';
-            td.style.height = '40px';
-            td.style.fontSize = '18px';
+            td.style.padding = '5px';
+            td.style.fontSize = '24px';
             td.style.fontWeight = 'bold';
+            td.style.whiteSpace = 'nowrap';
+            td.style.width = 'auto';
             
             const record = shiftData.find(d => d.date === dateStr && d.staff === staff);
             const val = record ? record.shift : "";
@@ -534,6 +520,34 @@ function executePdfExport() {
 
             tr.appendChild(td);
         });
+
+        // 【手順B】「日付」セルを作成し、強制的に先頭（一番左）に挿入する
+        const thDate = document.createElement('th');
+        const dayOfWeekStr = weekDays[dateObj.getDay()];
+        thDate.innerHTML = `${day}<span class="weekday-label">(${dayOfWeekStr})</span>`;
+        
+        thDate.style.border = borderStyle;
+        thDate.style.padding = '5px';
+        thDate.style.textAlign = 'center';
+        thDate.style.whiteSpace = 'nowrap';
+        
+        if (dateObj.getDay() === 0) { 
+            thDate.style.color = '#e74c3c'; 
+            thDate.style.backgroundColor = '#fff5f5'; 
+        } else if (dateObj.getDay() === 6) { 
+            thDate.style.color = '#3498db'; 
+            thDate.style.backgroundColor = '#f0f8ff'; 
+        } else {
+            thDate.style.backgroundColor = '#fff';
+        }
+        
+        // ★ここが重要：既存の先頭要素の「前」に挿入する
+        if (tr.firstChild) {
+            tr.insertBefore(thDate, tr.firstChild);
+        } else {
+            tr.appendChild(thDate);
+        }
+
         tbody.appendChild(tr);
     }
     table.appendChild(tbody);
@@ -541,28 +555,48 @@ function executePdfExport() {
     
     document.body.appendChild(printWrapper);
 
-    // 3. 画像化 & PDF保存 (★修正: windowWidthを一時領域と同じ2500pxに設定)
+    // 4. 画像化 & PDF保存（PCビューとして描画）
     html2canvas(printWrapper, { 
         scale: 2,
-        windowWidth: 2500 // スマホでも横幅2500pxの画面としてレンダリングさせる
+        useCORS: true,
+        windowWidth: 3000, 
+        width: printWrapper.scrollWidth, 
+        height: printWrapper.scrollHeight 
     }).then(canvas => { 
-        const imgData = canvas.toDataURL('image/png'); 
+        const imgData = canvas.toDataURL('image/jpeg', 0.8); 
         const { jsPDF } = window.jspdf; 
-        const doc = new jsPDF({ orientation: 'portrait' }); 
         
-        const pdfWidth = doc.internal.pageSize.getWidth(); 
-        const imgProps = doc.getImageProperties(imgData); 
+        // A4縦設定
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true }); 
         
-        // 幅合わせで縮小
+        const pdfWidth = doc.internal.pageSize.getWidth();
+        const pdfHeight = doc.internal.pageSize.getHeight();
         const margin = 10;
+        
         const availableWidth = pdfWidth - (margin * 2);
-        const ratio = availableWidth / imgProps.width;
-        const printHeight = imgProps.height * ratio;
+        const availableHeight = pdfHeight - (margin * 2);
 
-        doc.addImage(imgData, 'PNG', margin, margin, availableWidth, printHeight); 
+        const imgRatio = canvas.width / canvas.height;
+        const pageRatio = availableWidth / availableHeight;
+
+        let finalWidth, finalHeight;
+
+        // サイズ計算（1ページに収める）
+        if (imgRatio > pageRatio) {
+            finalWidth = availableWidth;
+            finalHeight = finalWidth / imgRatio;
+        } else {
+            finalHeight = availableHeight;
+            finalWidth = finalHeight * imgRatio;
+        }
+
+        const x = (pdfWidth - finalWidth) / 2;
+        const y = margin; 
+
+        doc.addImage(imgData, 'JPEG', x, y, finalWidth, finalHeight); 
         doc.save(`shift_${currentYear}_${currentMonth}.pdf`); 
         
-        document.body.removeChild(printWrapper);
+        if(document.body.contains(printWrapper)) document.body.removeChild(printWrapper);
         showLoading(false); 
         showAlert('success', '完了', 'PDFを保存しました'); 
     }).catch(err => { 

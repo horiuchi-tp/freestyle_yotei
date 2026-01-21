@@ -3,7 +3,6 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
     margin: 0; padding: 0;
     background-color: #f0f2f5;
-    /* touch-action: none; を削除してスクロールを許可 */
     overscroll-behavior: none;
     color: #333;
 }
@@ -63,28 +62,37 @@ header {
 .btn-icon.save { background: #e8f8f5; color: #27ae60; border-color: #27ae60; }
 .btn-icon:active { transform: scale(0.96); background: #eee; }
 
-
 /* テーブルエリア */
 #table-container {
     width: 100%; overflow: auto; 
-    height: calc(100vh - 240px); /* ヘッダーとフッター分を引く */
+    height: calc(100vh - 240px);
     background: white;
     -webkit-overflow-scrolling: touch;
-    transition: height 0.3s ease; /* メニュー開閉時に滑らかに動く */
-    padding-bottom: 200px; /* スクロール最下部の余白確保 */
+    transition: height 0.3s ease;
+    padding-bottom: 200px;
     box-sizing: border-box;
 }
-/* 追加: メニューが閉じた時はテーブルを広くする */
 body.menu-closed #table-container {
-    height: calc(100vh - 140px); /* ツールバーが下がった分広げる */
+    height: calc(100vh - 140px);
 }
 
-table { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; }
+/* テーブル全体のレイアウト（自動幅調整） */
+table { 
+    border-collapse: separate; 
+    border-spacing: 0; 
+    width: auto;           /* 画面幅に強制しない */
+    min-width: 100%;       /* 最低でも画面幅 */
+    table-layout: auto;    /* コンテンツに合わせて幅を調整 */
+}
 th, td {
     border-right: 1px solid #eee; border-bottom: 1px solid #eee;
-    text-align: center; padding: 0; height: 60px;
-    min-width: 60px; user-select: none;
+    text-align: center; 
+    height: 60px;
+    padding: 0 4px;        /* 最小限の余白 */
+    white-space: nowrap;   /* 折り返し禁止 */
     box-sizing: border-box;
+    width: auto;           /* 自動調整 */
+    min-width: auto;       /* 固定幅解除 */
 }
 
 /* 固定ヘッダー（日付） */
@@ -97,19 +105,32 @@ tbody th {
     position: sticky; left: 0; background: #fff; z-index: 11; 
     border-right: 2px solid #ddd; color: #333;
     box-shadow: 2px 0 5px rgba(0,0,0,0.05);
-    font-size: 20px;
-    font-weight: 900;
     padding: 0 5px;
     line-height: 1.1;
 }
 thead th:first-child { left: 0; z-index: 12; background: #fafafa; border-right: 2px solid #ddd;}
+
+/* スタッフ名（ヘッダー）のスタイル（2倍サイズ・太字） */
+.staff-header {
+    font-size: 28px !important;
+    font-weight: 900 !important;
+    line-height: 1.2;
+    padding: 10px 5px !important;
+}
+
+/* 日付横の曜日ラベル */
+.weekday-label {
+    font-size: 0.7em;
+    font-weight: normal;
+    margin-left: 2px;
+    display: inline-block;
+}
 
 /* シフトアイコン（テーブル内） */
 td {
     font-size: 24px;
     font-weight: 900;
 }
-
 td.selected {
     border: 3px solid #3498db; background-color: rgba(52, 152, 219, 0.2) !important;
 }
@@ -120,28 +141,21 @@ td.selected {
     background: #fff; border-top: 1px solid #ddd; 
     box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 200;
     display: flex; flex-direction: column;
-    transition: transform 0.3s ease; /* 開閉アニメーション */
+    transition: transform 0.3s ease;
 }
-
-/* 追加: ツールバーが隠れた時のスタイル */
 #toolbar.toolbar-hidden {
-    transform: translateY(100px); /* 下に隠す（ヘッダー部分だけ残す） */
+    transform: translateY(100px);
 }
-
-/* ツールバーヘッダー */
 .toolbar-header {
     padding: 8px 15px; display: flex; justify-content: space-between; align-items: center;
     border-bottom: 1px solid #f0f0f0;
 }
-
-/* 開閉ボタンの回転 */
 #toolbar-toggle-btn {
     transition: transform 0.3s;
 }
 body.menu-closed #toolbar-toggle-btn {
-    transform: rotate(180deg); /* ▲ になるように回転 */
+    transform: rotate(180deg);
 }
-
 .btn-mini { background: #95a5a6; color: white; border: none; padding: 5px 10px; border-radius: 15px; font-size: 11px; }
 .btn-mini-add { background: #fff; color: #3498db; border: 1px solid #3498db; padding: 4px 10px; border-radius: 15px; font-size: 11px; }
 
@@ -150,7 +164,6 @@ body.menu-closed #toolbar-toggle-btn {
     align-items: center; height: 100%;
     -webkit-overflow-scrolling: touch;
 }
-/* シフトボタン（ツールバー） */
 .shift-btn {
     flex-shrink: 0; width: 70px; height: 70px;
     display: flex; align-items: center; justify-content: center;
@@ -192,7 +205,6 @@ body.menu-closed #toolbar-toggle-btn {
 }
 .color-swatch.selected { border: 3px solid #333; transform: scale(1.1); }
 
-/* 追加: PDF選択用チェックボックスリスト */
 .checkbox-list {
     text-align: left;
     max-height: 250px;
@@ -204,12 +216,11 @@ body.menu-closed #toolbar-toggle-btn {
     -webkit-overflow-scrolling: touch;
 }
 .checkbox-item {
-    display: block;
+    display: flex;
     padding: 10px;
     border-bottom: 1px solid #f9f9f9;
     font-size: 16px;
     cursor: pointer;
-    display: flex;
     align-items: center;
 }
 .checkbox-item:last-child { border-bottom: none; }
@@ -261,3 +272,24 @@ body.menu-closed #toolbar-toggle-btn {
 .msg-footer { padding: 15px; background: #f9f9f9; display: flex; justify-content: center; gap: 15px; }
 .type-error .msg-header { background-color: #e74c3c; } 
 .type-success .msg-header { background-color: #2ecc71; }
+
+/* ▼▼▼ style.css の一番下に追加してください ▼▼▼ */
+
+/* 列幅の自動調整（名前の長さに合わせる） */
+table { 
+    table-layout: auto !important;
+    width: auto !important;
+}
+th, td {
+    min-width: auto !important; /* 固定幅を解除 */
+    width: auto !important;     /* 文字数に合わせる */
+    white-space: nowrap;        /* 勝手に改行させない */
+    padding: 0 4px !important;  /* 余白調整 */
+    box-sizing: border-box;
+}
+
+/* PDF用の一時コンテナ（白紙対策） */
+#print-wrapper-container {
+    width: max-content !important; /* 中身に合わせて広げる */
+    min-width: 1000px; /* スマホでもPC幅として描画させる */
+}
